@@ -3,104 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AURA SCANNER: HARDCORE</title>
-    
+    <title>RIDER PRO: 5K</title>
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Roboto:wght@300;400&display=swap" rel="stylesheet">
-    
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Roboto', sans-serif; color: #d4af37; }
         #container { position: relative; width: 100vw; height: 100vh; }
-        
         video#input-video { width: 100%; height: 100%; object-fit: cover; display: none; }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
-        /* ИНТЕРФЕЙС */
+        /* UI (AURA 3 STYLE) */
         .ui-layer { position: absolute; top:0; left:0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; z-index: 20; }
-        
         .top-panel { background: rgba(0,0,0,0.85); padding: 15px; pointer-events: auto; border-bottom: 2px solid #d4af37; text-align: center; }
-        .app-title { font-family: 'Cinzel', serif; font-size: 22px; color: #d4af37; letter-spacing: 3px; text-shadow: 0 0 10px rgba(212, 175, 55, 0.5); }
+        .app-title { font-family: 'Cinzel', serif; font-size: 24px; color: #d4af37; letter-spacing: 2px; }
         
         .bottom-panel { padding: 30px; pointer-events: auto; text-align: center; background: linear-gradient(to top, rgba(0,0,0,0.95), transparent); }
-        .scan-btn { background: #d4af37; color: #000; border: 4px solid #bba078; width: 85px; height: 85px; border-radius: 50%; font-size: 40px; box-shadow: 0 0 30px rgba(212, 175, 55, 0.4); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 0.1s; }
+        .scan-btn { background: #d4af37; color: #000; border: none; width: 80px; height: 80px; border-radius: 50%; font-size: 36px; box-shadow: 0 0 25px rgba(212, 175, 55, 0.4); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 0.1s; }
         .scan-btn:active { transform: scale(0.95); }
 
-        /* ПРИЦЕЛ (HUD) */
-        .hud-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.8; }
-        
-        .crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; }
-        .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(212, 175, 55, 0.8); }
-        .crosshair::before { top: 19px; left: 0; width: 40px; height: 2px; } 
-        .crosshair::after { top: 0; left: 19px; width: 2px; height: 40px; } 
-
-        .scan-frame { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            width: 80%; height: 60%; 
-            border: 2px solid rgba(212, 175, 55, 0.3); 
-            border-radius: 20px; 
-            box-shadow: 0 0 60px rgba(0,0,0,0.5) inset; 
-            animation: breathe 3s infinite ease-in-out; 
-        }
-        .corner { position: absolute; width: 30px; height: 30px; border-color: #d4af37; border-style: solid; border-width: 0; }
-        .tl { top: -2px; left: -2px; border-top-width: 4px; border-left-width: 4px; border-radius: 10px 0 0 0; }
-        .tr { top: -2px; right: -2px; border-top-width: 4px; border-right-width: 4px; border-radius: 0 10px 0 0; }
-        .bl { bottom: -2px; left: -2px; border-bottom-width: 4px; border-left-width: 4px; border-radius: 0 0 0 10px; }
-        .br { bottom: -2px; right: -2px; border-bottom-width: 4px; border-right-width: 4px; border-radius: 0 0 10px 0; }
-        @keyframes breathe { 0% { opacity: 0.5; border-color: rgba(212, 175, 55, 0.2); } 50% { opacity: 1; border-color: rgba(212, 175, 55, 0.7); } 100% { opacity: 0.5; border-color: rgba(212, 175, 55, 0.2); } }
-
-        /* РЕЗУЛЬТАТ */
+        /* РЕЗУЛЬТАТЫ */
         #result-box { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #111; z-index: 100; display: none; pointer-events: auto; flex-direction: column; }
         .result-scroll-area { flex: 1; overflow-y: auto; padding: 20px; text-align: center; }
-        .cards-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 30px; margin-top: 20px;}
+        .cards-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 30px; }
         .card-item { width: 30%; min-width: 90px; max-width: 140px; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
         .card-visual { width: 100%; border-radius: 6px; border: 1px solid #d4af37; }
         .card-name-mini { font-size: 12px; margin-top: 8px; color: #fff; text-align: center; font-family: 'Cinzel', serif; }
-        .close-res { margin: 20px; padding: 15px 40px; background: transparent; color: #d4af37; border: 1px solid #d4af37; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; font-family: 'Cinzel', serif; transition: 0.3s; }
-        .close-res:hover { background: #d4af37; color: #000; }
+        .close-res { margin: 20px; padding: 15px 40px; background: transparent; color: #d4af37; border: 1px solid #d4af37; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; }
 
         /* ЗУМ */
         #zoom-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 200; display: none; justify-content: center; align-items: center; flex-direction: column; }
         #zoom-title { color: #d4af37; font-family: 'Cinzel', serif; font-size: 24px; margin-bottom: 20px; }
-        
-        /* ЭКРАН ЗАГРУЗКИ */
+
+        /* ЗАГРУЗКА */
         #start-screen { position: absolute; top:0; left:0; width:100%; height:100%; background:#000; z-index:999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
-        .logo-text { font-family: 'Cinzel', serif; font-size: 32px; color: #d4af37; margin-bottom: 40px; text-align: center; letter-spacing: 4px; border-bottom: 1px solid #d4af37; padding-bottom: 10px; text-shadow: 0 0 15px #d4af37; }
+        .logo-text { font-family: 'Cinzel', serif; font-size: 32px; color: #d4af37; margin-bottom: 40px; text-align: center; letter-spacing: 4px; border-bottom: 1px solid #d4af37; padding-bottom: 10px; }
         #big-start-btn { padding: 15px 40px; font-size: 16px; background: transparent; color: #d4af37; border: 1px solid #d4af37; text-transform: uppercase; letter-spacing: 2px; cursor: pointer; transition: all 0.3s; }
-        
-        .status-text { position: absolute; bottom: 130px; width: 100%; text-align: center; font-size: 20px; font-weight: bold; letter-spacing: 1px; text-shadow: 0 0 5px #000; color: #fff; background: rgba(0,0,0,0.4); padding: 8px; font-family: 'Cinzel', serif; }
-        #error-log { color: #ff5555; margin-top: 15px; font-size: 12px; max-width: 80%; text-align: center; }
+        .status-text { position: absolute; bottom: 130px; width: 100%; text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 1px; color: #fff; background: rgba(0,0,0,0.4); padding: 8px; font-family: 'Cinzel', serif; }
     </style>
 </head>
 <body>
 
     <div id="container">
         <div id="start-screen">
-            <div class="logo-text">AURA<br>SCANNER</div>
+            <div class="logo-text">RIDER PRO<br>5K SYSTEM</div>
             <button id="big-start-btn" onclick="initSystem()">ЗАПУСК</button>
-            <div id="loading-text" style="color: #666; margin-top: 15px; font-size: 12px; display: none;">Загрузка нейросети (Hardcore)...</div>
-            <div id="error-log"></div>
+            <div id="loading-text" style="color: #666; margin-top: 15px; font-size: 12px; display: none;">Загрузка нейросети (640px)...</div>
         </div>
 
         <video id="input-video" playsinline muted autoplay></video>
         <canvas id="canvas"></canvas>
         
-        <div class="hud-layer">
-            <div class="scan-frame">
-                <div class="corner tl"></div><div class="corner tr"></div>
-                <div class="corner bl"></div><div class="corner br"></div>
-            </div>
-            <div class="crosshair"></div>
-        </div>
-        
         <div class="ui-layer">
-            <div class="top-panel"><div class="app-title">AURA PROJECT</div></div>
+            <div class="top-panel"><div class="app-title">RIDER WAITE</div></div>
             <div id="status" class="status-text">ОЖИДАНИЕ...</div>
             <div class="bottom-panel"><button class="scan-btn" onclick="captureRead()">📷</button></div>
         </div>
 
         <div id="result-box">
             <div class="result-scroll-area">
-                <h2 style="color: #d4af37; font-family: 'Cinzel'; margin-bottom: 10px;">ОТВЕТ АУРЫ</h2>
+                <h2 style="color: #d4af37; font-family: 'Cinzel'; margin-bottom: 10px;">РАСКЛАД</h2>
                 <div id="cards-container" class="cards-row"></div>
             </div>
             <button class="close-res" onclick="closeResult()">НОВЫЙ СКАН</button>
@@ -113,47 +74,37 @@
     </div>
 
     <script>
-        // === 1. БАЗА КАРТ "АУРА" (80 КАРТ) ===
-        // Собрано на основе твоего файла 'прямые ссылки.txt'
-        const BASE_IMG_URL = "https://cdn.jsdelivr.net/gh/marataitester-blip/tarot/";
+        // === 1. БАЗА RIDER WAITE (78 КАРТ) ===
+        const BASE_IMG_URL = "https://raw.githubusercontent.com/marataitester-blip/rider-tarot-card/main/Cards-jpg/Cards-jpg/";
         const TAROT_DATA = [];
 
-        // Старшие Арканы (24 карты: 00-21 + Hero + White)
         const majors = [
-            "00_fool", "01_magician", "02_high_priestess", "03_empress", "04_emperor", "05_hierophant",
-            "06_lovers", "07_chariot", "08_justice", "09_hermit", "10_wheel_of_fortune", "11_strength",
-            "12_hanged_man", "13_death", "14_temperance", "15_devil", "16_tower", "17_star",
-            "18_moon", "19_sun", "20_judgement", "21_world", "22_hero", "23_white_card"
+            {n:"Шут", f:"00-TheFool.jpg"}, {n:"Маг", f:"01-TheMagician.jpg"}, {n:"Жрица", f:"02-TheHighPriestess.jpg"},
+            {n:"Императрица", f:"03-TheEmpress.jpg"}, {n:"Император", f:"04-TheEmperor.jpg"}, {n:"Жрец", f:"05-TheHierophant.jpg"},
+            {n:"Влюбленные", f:"06-TheLovers.jpg"}, {n:"Колесница", f:"07-TheChariot.jpg"}, {n:"Сила", f:"08-Strength.jpg"},
+            {n:"Отшельник", f:"09-TheHermit.jpg"}, {n:"Колесо Фортуны", f:"10-WheelOfFortune.jpg"}, {n:"Справедливость", f:"11-Justice.jpg"},
+            {n:"Повешенный", f:"12-TheHangedMan.jpg"}, {n:"Смерть", f:"13-Death.jpg"}, {n:"Умеренность", f:"14-Temperance.jpg"},
+            {n:"Дьявол", f:"15-TheDevil.jpg"}, {n:"Башня", f:"16-TheTower.jpg"}, {n:"Звезда", f:"17-TheStar.jpg"},
+            {n:"Луна", f:"18-TheMoon.jpg"}, {n:"Солнце", f:"19-TheSun.jpg"}, {n:"Суд", f:"20-Judgement.jpg"},
+            {n:"Мир", f:"21-TheWorld.jpg"}
         ];
-        
-        majors.forEach(name => {
-            // Делаем красивое имя из файла: "00_fool" -> "Fool"
-            let niceName = name.split('_').slice(1).join(' ').toUpperCase();
-            TAROT_DATA.push({ name: niceName, image: `${BASE_IMG_URL}${name}.png` });
-        });
+        majors.forEach(m => TAROT_DATA.push({ name: m.n, image: BASE_IMG_URL + m.f }));
 
-        // Младшие Арканы (56 карт)
-        const suits = ["wands", "cups", "swords", "pentacles"];
-        const ranks = ["01_ace", "02_two", "03_three", "04_four", "05_five", "06_six", "07_seven", 
-                       "08_eight", "09_nine", "10_ten", "11_page", "12_knight", "13_queen", "14_king"];
-
+        const suits = [{id: 'Wands', ru: 'Жезлов'}, {id: 'Cups', ru: 'Кубков'}, {id: 'Swords', ru: 'Мечей'}, {id: 'Pentacles', ru: 'Пентаклей'}];
+        const ranks = ['Туз', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Паж', 'Рыцарь', 'Королева', 'Король'];
         suits.forEach(s => {
-            ranks.forEach(r => {
-                // Имя файла: wands_01_ace -> wands_01_ace.png
-                let niceName = `${r.split('_')[2]} of ${s}`.toUpperCase();
-                // Для чисел (two, three...)
-                if (!isNaN(niceName.charAt(0))) niceName = `${r.split('_')[1]} of ${s}`.toUpperCase();
-                
-                TAROT_DATA.push({ name: niceName, image: `${BASE_IMG_URL}${s}_${r}.png` });
+            ranks.forEach((r, idx) => {
+                const num = (idx + 1).toString().padStart(2, '0');
+                TAROT_DATA.push({ name: `${r} ${s.ru}`, image: BASE_IMG_URL + `${s.id}${num}.jpg` });
             });
         });
 
-        // === 2. НАСТРОЙКИ ===
-        // Имя файла оставляем старое, так как оно так называется в репозитории
-        const MODEL_PATH = './rider_hardcore.onnx'; 
-        const MODEL_SIZE = 800; 
-        const CONFIDENCE = 0.25; 
-        const NMS_THRESHOLD = 0.50;
+        // === 2. НАСТРОЙКИ (AURA 3 LOGIC для 640px) ===
+        // Убедись, что файл так называется!
+        const MODEL_PATH = './rider_5k_640.onnx'; 
+        const MODEL_SIZE = 640; 
+        const CONFIDENCE = 0.45; // Высокая уверенность (как в Aura 3)
+        const NMS_THRESHOLD = 0.45; // Стабильный фильтр
 
         let session;
         let detectedCards = []; 
@@ -164,11 +115,9 @@
         async function initSystem() {
             const btn = document.getElementById('big-start-btn');
             const loadText = document.getElementById('loading-text');
-            const errorLog = document.getElementById('error-log');
-            btn.style.display = 'none'; loadText.style.display = 'block'; errorLog.innerText = "";
+            btn.style.display = 'none'; loadText.style.display = 'block';
 
             try {
-                // Камера
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} }, 
                     audio: false 
@@ -178,20 +127,15 @@
                 video.style.display = 'block'; 
                 await new Promise(r => video.onloadedmetadata = r);
                 
-                // Загрузка модели
                 session = await ort.InferenceSession.create(MODEL_PATH, { executionProviders: ['wasm'] });
                 
                 document.getElementById('start-screen').style.opacity = '0';
                 setTimeout(() => { document.getElementById('start-screen').style.display = 'none'; }, 800);
                 
-                status.innerText = "ПОИСК АУРЫ..."; status.style.color = "#888";
+                status.innerText = "ПОИСК..."; status.style.color = "#888";
                 detectFrame(video);
             } catch (e) {
-                console.error(e); 
-                loadText.style.display = 'none'; 
-                btn.style.display = 'inline-block'; 
-                btn.innerText = "ПОВТОРИТЬ";
-                errorLog.innerText = "ОШИБКА: " + e.message;
+                alert("Ошибка: " + e.message); btn.style.display = 'block';
             }
         }
 
@@ -209,40 +153,33 @@
 
             try {
                 const results = await session.run({ [session.inputNames[0]]: tensor });
-                const output = results[session.outputNames[0]].data;
-                const rawCards = processAndDraw(output, canvas, video.videoWidth, video.videoHeight);
+                detectedCards = processAndDraw(results[session.outputNames[0]].data, canvas, video.videoWidth, video.videoHeight);
                 
-                if (document.getElementById('result-box').style.display === 'none') {
-                    detectedCards = rawCards;
-                    if (detectedCards.length > 0) {
-                        status.innerText = `ВИЖУ КАРТ: ${detectedCards.length}`;
-                        status.style.color = "#d4af37"; status.style.textShadow = "0 0 10px #d4af37";
-                    } else {
-                        status.innerText = "ПОИСК...";
-                        status.style.color = "#888"; status.style.textShadow = "none";
-                    }
+                if (detectedCards.length > 0) {
+                    status.innerText = `КАРТ: ${detectedCards.length}`;
+                    status.style.color = "#d4af37";
+                } else {
+                    status.innerText = "ПОИСК...";
+                    status.style.color = "#888";
                 }
             } catch (e) { console.error(e); }
-            setTimeout(() => requestAnimationFrame(() => detectFrame(video)), 50);
+            requestAnimationFrame(() => detectFrame(video));
         }
 
         function processAndDraw(data, canvas, vW, vH) {
             const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,vW,vH);
             
-            // 🔥 Модель была обучена на 80 классах (Aura), поэтому 80+4
-            const numClasses = 80; 
+            // Стандартные якоря для 640px (8400 шт)
+            const numClasses = 78; 
             const channels = numClasses + 4; 
-            const dynamicAnchors = data.length / channels; 
+            const dynamicAnchors = data.length / channels; // Будет 8400
             
             let boxes = [];
             for (let i=0; i<dynamicAnchors; i++) {
                 let maxConf = 0; let classIdx = 0;
                 for(let c=4; c<channels; c++) { 
-                    // Проверка границ массива (на случай ошибок)
-                    if ((c*dynamicAnchors+i) < data.length) {
-                        const val = data[c*dynamicAnchors+i]; 
-                        if(val > maxConf) { maxConf = val; classIdx = c-4; } 
-                    }
+                    const val = data[c*dynamicAnchors+i]; 
+                    if(val > maxConf) { maxConf = val; classIdx = c-4; } 
                 }
                 if (maxConf > CONFIDENCE) { 
                     const x = data[0*dynamicAnchors+i]; const y = data[1*dynamicAnchors+i];
@@ -250,6 +187,7 @@
                     boxes.push({ x: x, y: y, w: w, h: h, score: maxConf, classId: classIdx });
                 }
             }
+            
             boxes.sort((a,b) => b.score - a.score);
             const cleanBoxes = [];
             while(boxes.length > 0) {
@@ -258,37 +196,36 @@
                     const x1 = Math.max(best.x - best.w/2, b.x - b.w/2); const y1 = Math.max(best.y - best.h/2, b.y - b.h/2);
                     const x2 = Math.min(best.x + best.w/2, b.x + b.w/2); const y2 = Math.min(best.y + best.h/2, b.y + b.h/2);
                     if (x2 < x1 || y2 < y1) return true;
-                    return ((x2-x1)*(y2-y1)) / (best.w*best.h + b.w*b.h - (x2-x1)*(y2-y1)) < NMS_THRESHOLD;
+                    // IOU фильтр
+                    const inter = (x2-x1)*(y2-y1);
+                    const union = (best.w*best.h) + (b.w*b.h) - inter;
+                    return (inter/union) < NMS_THRESHOLD;
                 });
             }
             
-            const sx = vW/MODEL_SIZE; const sy = vH/MODEL_SIZE; const finalCards = [];
-            ctx.lineWidth = 2; ctx.font = "16px Roboto"; 
+            const sx = vW/MODEL_SIZE; const sy = vH/MODEL_SIZE; 
+            const finalCards = [];
+            ctx.lineWidth = 3; ctx.strokeStyle = "#d4af37";
             
             cleanBoxes.forEach(box => {
                 const realX = (box.x - box.w/2) * sx; const realY = (box.y - box.h/2) * sy;
-                ctx.strokeStyle = "rgba(212, 175, 55, 0.8)"; 
                 ctx.strokeRect(realX, realY, box.w * sx, box.h * sy);
-                
                 let card = TAROT_DATA[box.classId];
                 if(card) {
                     finalCards.push({ id: box.classId, x: realX, name: card.name, image: card.image });
-                    ctx.fillStyle = "#d4af37"; ctx.fillText(card.name, realX, realY - 10);
                 }
             });
+            
+            // Убираем дубли
             const unique = []; const seen = new Set();
             for (const c of finalCards) { if (!seen.has(c.id)) { seen.add(c.id); unique.push(c); } }
             return unique;
         }
 
         function captureRead() {
-            if (detectedCards.length === 0) { alert("Не вижу карт!"); return; }
+            if (detectedCards.length === 0) { alert("Камера не видит карты!"); return; }
             detectedCards.sort((a, b) => a.x - b.x); 
-            renderResult();
-            document.getElementById('result-box').style.display = 'flex';
-        }
-
-        function renderResult() {
+            
             const container = document.getElementById('cards-container');
             container.innerHTML = "";
             detectedCards.forEach(c => { 
@@ -298,640 +235,15 @@
                 div.innerHTML = `<img src="${c.image}" class="card-visual"><div class="card-name-mini">${c.name}</div>`;
                 container.appendChild(div);
             });
-        }
-
-        function closeResult() { document.getElementById('result-box').style.display = 'none'; }
-        
-        function openZoom(card) {
-            const modal = document.getElementById('zoom-modal');
-            const placeholder = document.getElementById('zoom-media-placeholder');
-            placeholder.innerHTML = `<img src="${card.image}" style="max-width: 90vw; max-height: 70vh; border: 2px solid #d4af37;">`;
-            modal.style.display = 'flex';
-        }
-        function closeZoom() { document.getElementById('zoom-modal').style.display = 'none'; }
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AURA SCANNER: HARDCORE</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Roboto:wght@300;400&display=swap" rel="stylesheet">
-    
-    <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Roboto', sans-serif; color: #d4af37; }
-        #container { position: relative; width: 100vw; height: 100vh; }
-        
-        video#input-video { width: 100%; height: 100%; object-fit: cover; display: none; }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; }
-
-        /* ИНТЕРФЕЙС */
-        .ui-layer { position: absolute; top:0; left:0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; z-index: 20; }
-        
-        .top-panel { background: rgba(0,0,0,0.85); padding: 15px; pointer-events: auto; border-bottom: 2px solid #d4af37; text-align: center; }
-        .app-title { font-family: 'Cinzel', serif; font-size: 22px; color: #d4af37; letter-spacing: 3px; text-shadow: 0 0 10px rgba(212, 175, 55, 0.5); }
-        
-        .bottom-panel { padding: 30px; pointer-events: auto; text-align: center; background: linear-gradient(to top, rgba(0,0,0,0.95), transparent); }
-        .scan-btn { background: #d4af37; color: #000; border: 4px solid #bba078; width: 85px; height: 85px; border-radius: 50%; font-size: 40px; box-shadow: 0 0 30px rgba(212, 175, 55, 0.4); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 0.1s; }
-        .scan-btn:active { transform: scale(0.95); }
-
-        /* ПРИЦЕЛ (HUD) */
-        .hud-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.8; }
-        
-        .crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; }
-        .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(212, 175, 55, 0.8); }
-        .crosshair::before { top: 19px; left: 0; width: 40px; height: 2px; } 
-        .crosshair::after { top: 0; left: 19px; width: 2px; height: 40px; } 
-
-        .scan-frame { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            width: 80%; height: 60%; 
-            border: 2px solid rgba(212, 175, 55, 0.3); 
-            border-radius: 20px; 
-            box-shadow: 0 0 60px rgba(0,0,0,0.5) inset; 
-            animation: breathe 3s infinite ease-in-out; 
-        }
-        .corner { position: absolute; width: 30px; height: 30px; border-color: #d4af37; border-style: solid; border-width: 0; }
-        .tl { top: -2px; left: -2px; border-top-width: 4px; border-left-width: 4px; border-radius: 10px 0 0 0; }
-        .tr { top: -2px; right: -2px; border-top-width: 4px; border-right-width: 4px; border-radius: 0 10px 0 0; }
-        .bl { bottom: -2px; left: -2px; border-bottom-width: 4px; border-left-width: 4px; border-radius: 0 0 0 10px; }
-        .br { bottom: -2px; right: -2px; border-bottom-width: 4px; border-right-width: 4px; border-radius: 0 0 10px 0; }
-        @keyframes breathe { 0% { opacity: 0.5; border-color: rgba(212, 175, 55, 0.2); } 50% { opacity: 1; border-color: rgba(212, 175, 55, 0.7); } 100% { opacity: 0.5; border-color: rgba(212, 175, 55, 0.2); } }
-
-        /* РЕЗУЛЬТАТ */
-        #result-box { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #111; z-index: 100; display: none; pointer-events: auto; flex-direction: column; }
-        .result-scroll-area { flex: 1; overflow-y: auto; padding: 20px; text-align: center; }
-        .cards-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 30px; margin-top: 20px;}
-        .card-item { width: 30%; min-width: 90px; max-width: 140px; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
-        .card-visual { width: 100%; border-radius: 6px; border: 1px solid #d4af37; }
-        .card-name-mini { font-size: 12px; margin-top: 8px; color: #fff; text-align: center; font-family: 'Cinzel', serif; }
-        .close-res { margin: 20px; padding: 15px 40px; background: transparent; color: #d4af37; border: 1px solid #d4af37; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; font-family: 'Cinzel', serif; transition: 0.3s; }
-        .close-res:hover { background: #d4af37; color: #000; }
-
-        /* ЗУМ */
-        #zoom-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 200; display: none; justify-content: center; align-items: center; flex-direction: column; }
-        #zoom-title { color: #d4af37; font-family: 'Cinzel', serif; font-size: 24px; margin-bottom: 20px; }
-        
-        /* ЭКРАН ЗАГРУЗКИ */
-        #start-screen { position: absolute; top:0; left:0; width:100%; height:100%; background:#000; z-index:999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
-        .logo-text { font-family: 'Cinzel', serif; font-size: 32px; color: #d4af37; margin-bottom: 40px; text-align: center; letter-spacing: 4px; border-bottom: 1px solid #d4af37; padding-bottom: 10px; text-shadow: 0 0 15px #d4af37; }
-        #big-start-btn { padding: 15px 40px; font-size: 16px; background: transparent; color: #d4af37; border: 1px solid #d4af37; text-transform: uppercase; letter-spacing: 2px; cursor: pointer; transition: all 0.3s; }
-        
-        .status-text { position: absolute; bottom: 130px; width: 100%; text-align: center; font-size: 20px; font-weight: bold; letter-spacing: 1px; text-shadow: 0 0 5px #000; color: #fff; background: rgba(0,0,0,0.4); padding: 8px; font-family: 'Cinzel', serif; }
-        #error-log { color: #ff5555; margin-top: 15px; font-size: 12px; max-width: 80%; text-align: center; }
-    </style>
-</head>
-<body>
-
-    <div id="container">
-        <div id="start-screen">
-            <div class="logo-text">AURA<br>SCANNER</div>
-            <button id="big-start-btn" onclick="initSystem()">ЗАПУСК</button>
-            <div id="loading-text" style="color: #666; margin-top: 15px; font-size: 12px; display: none;">Загрузка нейросети (Hardcore)...</div>
-            <div id="error-log"></div>
-        </div>
-
-        <video id="input-video" playsinline muted autoplay></video>
-        <canvas id="canvas"></canvas>
-        
-        <div class="hud-layer">
-            <div class="scan-frame">
-                <div class="corner tl"></div><div class="corner tr"></div>
-                <div class="corner bl"></div><div class="corner br"></div>
-            </div>
-            <div class="crosshair"></div>
-        </div>
-        
-        <div class="ui-layer">
-            <div class="top-panel"><div class="app-title">AURA PROJECT</div></div>
-            <div id="status" class="status-text">ОЖИДАНИЕ...</div>
-            <div class="bottom-panel"><button class="scan-btn" onclick="captureRead()">📷</button></div>
-        </div>
-
-        <div id="result-box">
-            <div class="result-scroll-area">
-                <h2 style="color: #d4af37; font-family: 'Cinzel'; margin-bottom: 10px;">ОТВЕТ АУРЫ</h2>
-                <div id="cards-container" class="cards-row"></div>
-            </div>
-            <button class="close-res" onclick="closeResult()">НОВЫЙ СКАН</button>
-        </div>
-
-        <div id="zoom-modal" onclick="closeZoom()">
-            <div id="zoom-title">Карта</div>
-            <div id="zoom-media-placeholder"></div>
-        </div>
-    </div>
-
-    <script>
-        // === 1. БАЗА КАРТ "АУРА" (80 КАРТ) ===
-        // Собрано на основе твоего файла 'прямые ссылки.txt'
-        const BASE_IMG_URL = "https://cdn.jsdelivr.net/gh/marataitester-blip/tarot/";
-        const TAROT_DATA = [];
-
-        // Старшие Арканы (24 карты: 00-21 + Hero + White)
-        const majors = [
-            "00_fool", "01_magician", "02_high_priestess", "03_empress", "04_emperor", "05_hierophant",
-            "06_lovers", "07_chariot", "08_justice", "09_hermit", "10_wheel_of_fortune", "11_strength",
-            "12_hanged_man", "13_death", "14_temperance", "15_devil", "16_tower", "17_star",
-            "18_moon", "19_sun", "20_judgement", "21_world", "22_hero", "23_white_card"
-        ];
-        
-        majors.forEach(name => {
-            // Делаем красивое имя из файла: "00_fool" -> "Fool"
-            let niceName = name.split('_').slice(1).join(' ').toUpperCase();
-            TAROT_DATA.push({ name: niceName, image: `${BASE_IMG_URL}${name}.png` });
-        });
-
-        // Младшие Арканы (56 карт)
-        const suits = ["wands", "cups", "swords", "pentacles"];
-        const ranks = ["01_ace", "02_two", "03_three", "04_four", "05_five", "06_six", "07_seven", 
-                       "08_eight", "09_nine", "10_ten", "11_page", "12_knight", "13_queen", "14_king"];
-
-        suits.forEach(s => {
-            ranks.forEach(r => {
-                // Имя файла: wands_01_ace -> wands_01_ace.png
-                let niceName = `${r.split('_')[2]} of ${s}`.toUpperCase();
-                // Для чисел (two, three...)
-                if (!isNaN(niceName.charAt(0))) niceName = `${r.split('_')[1]} of ${s}`.toUpperCase();
-                
-                TAROT_DATA.push({ name: niceName, image: `${BASE_IMG_URL}${s}_${r}.png` });
-            });
-        });
-
-        // === 2. НАСТРОЙКИ ===
-        // Имя файла оставляем старое, так как оно так называется в репозитории
-        const MODEL_PATH = './rider_hardcore.onnx'; 
-        const MODEL_SIZE = 800; 
-        const CONFIDENCE = 0.25; 
-        const NMS_THRESHOLD = 0.50;
-
-        let session;
-        let detectedCards = []; 
-        const status = document.getElementById('status');
-
-        ort.env.wasm.numThreads = 2; ort.env.wasm.simd = false;
-
-        async function initSystem() {
-            const btn = document.getElementById('big-start-btn');
-            const loadText = document.getElementById('loading-text');
-            const errorLog = document.getElementById('error-log');
-            btn.style.display = 'none'; loadText.style.display = 'block'; errorLog.innerText = "";
-
-            try {
-                // Камера
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} }, 
-                    audio: false 
-                });
-                const video = document.getElementById('input-video');
-                video.srcObject = stream;
-                video.style.display = 'block'; 
-                await new Promise(r => video.onloadedmetadata = r);
-                
-                // Загрузка модели
-                session = await ort.InferenceSession.create(MODEL_PATH, { executionProviders: ['wasm'] });
-                
-                document.getElementById('start-screen').style.opacity = '0';
-                setTimeout(() => { document.getElementById('start-screen').style.display = 'none'; }, 800);
-                
-                status.innerText = "ПОИСК АУРЫ..."; status.style.color = "#888";
-                detectFrame(video);
-            } catch (e) {
-                console.error(e); 
-                loadText.style.display = 'none'; 
-                btn.style.display = 'inline-block'; 
-                btn.innerText = "ПОВТОРИТЬ";
-                errorLog.innerText = "ОШИБКА: " + e.message;
-            }
-        }
-
-        async function detectFrame(video) {
-            const canvas = document.getElementById('canvas');
-            const mat = document.createElement('canvas');
-            mat.width = MODEL_SIZE; mat.height = MODEL_SIZE;
-            mat.getContext('2d').drawImage(video, 0, 0, MODEL_SIZE, MODEL_SIZE);
-            const data = mat.getContext('2d').getImageData(0,0,MODEL_SIZE,MODEL_SIZE).data;
-            const input = new Float32Array(3 * MODEL_SIZE * MODEL_SIZE);
-            for (let i=0; i<MODEL_SIZE*MODEL_SIZE; i++) {
-                input[i] = data[i*4]/255.0; input[MODEL_SIZE*MODEL_SIZE+i] = data[i*4+1]/255.0; input[2*MODEL_SIZE*MODEL_SIZE+i] = data[i*4+2]/255.0;
-            }
-            const tensor = new ort.Tensor('float32', input, [1, 3, MODEL_SIZE, MODEL_SIZE]);
-
-            try {
-                const results = await session.run({ [session.inputNames[0]]: tensor });
-                const output = results[session.outputNames[0]].data;
-                const rawCards = processAndDraw(output, canvas, video.videoWidth, video.videoHeight);
-                
-                if (document.getElementById('result-box').style.display === 'none') {
-                    detectedCards = rawCards;
-                    if (detectedCards.length > 0) {
-                        status.innerText = `ВИЖУ КАРТ: ${detectedCards.length}`;
-                        status.style.color = "#d4af37"; status.style.textShadow = "0 0 10px #d4af37";
-                    } else {
-                        status.innerText = "ПОИСК...";
-                        status.style.color = "#888"; status.style.textShadow = "none";
-                    }
-                }
-            } catch (e) { console.error(e); }
-            setTimeout(() => requestAnimationFrame(() => detectFrame(video)), 50);
-        }
-
-        function processAndDraw(data, canvas, vW, vH) {
-            const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,vW,vH);
-            
-            // 🔥 Модель была обучена на 80 классах (Aura), поэтому 80+4
-            const numClasses = 80; 
-            const channels = numClasses + 4; 
-            const dynamicAnchors = data.length / channels; 
-            
-            let boxes = [];
-            for (let i=0; i<dynamicAnchors; i++) {
-                let maxConf = 0; let classIdx = 0;
-                for(let c=4; c<channels; c++) { 
-                    // Проверка границ массива (на случай ошибок)
-                    if ((c*dynamicAnchors+i) < data.length) {
-                        const val = data[c*dynamicAnchors+i]; 
-                        if(val > maxConf) { maxConf = val; classIdx = c-4; } 
-                    }
-                }
-                if (maxConf > CONFIDENCE) { 
-                    const x = data[0*dynamicAnchors+i]; const y = data[1*dynamicAnchors+i];
-                    const w = data[2*dynamicAnchors+i]; const h = data[3*dynamicAnchors+i];
-                    boxes.push({ x: x, y: y, w: w, h: h, score: maxConf, classId: classIdx });
-                }
-            }
-            boxes.sort((a,b) => b.score - a.score);
-            const cleanBoxes = [];
-            while(boxes.length > 0) {
-                const best = boxes.shift(); cleanBoxes.push(best);
-                boxes = boxes.filter(b => {
-                    const x1 = Math.max(best.x - best.w/2, b.x - b.w/2); const y1 = Math.max(best.y - best.h/2, b.y - b.h/2);
-                    const x2 = Math.min(best.x + best.w/2, b.x + b.w/2); const y2 = Math.min(best.y + best.h/2, b.y + b.h/2);
-                    if (x2 < x1 || y2 < y1) return true;
-                    return ((x2-x1)*(y2-y1)) / (best.w*best.h + b.w*b.h - (x2-x1)*(y2-y1)) < NMS_THRESHOLD;
-                });
-            }
-            
-            const sx = vW/MODEL_SIZE; const sy = vH/MODEL_SIZE; const finalCards = [];
-            ctx.lineWidth = 2; ctx.font = "16px Roboto"; 
-            
-            cleanBoxes.forEach(box => {
-                const realX = (box.x - box.w/2) * sx; const realY = (box.y - box.h/2) * sy;
-                ctx.strokeStyle = "rgba(212, 175, 55, 0.8)"; 
-                ctx.strokeRect(realX, realY, box.w * sx, box.h * sy);
-                
-                let card = TAROT_DATA[box.classId];
-                if(card) {
-                    finalCards.push({ id: box.classId, x: realX, name: card.name, image: card.image });
-                    ctx.fillStyle = "#d4af37"; ctx.fillText(card.name, realX, realY - 10);
-                }
-            });
-            const unique = []; const seen = new Set();
-            for (const c of finalCards) { if (!seen.has(c.id)) { seen.add(c.id); unique.push(c); } }
-            return unique;
-        }
-
-        function captureRead() {
-            if (detectedCards.length === 0) { alert("Не вижу карт!"); return; }
-            detectedCards.sort((a, b) => a.x - b.x); 
-            renderResult();
             document.getElementById('result-box').style.display = 'flex';
         }
 
-        function renderResult() {
-            const container = document.getElementById('cards-container');
-            container.innerHTML = "";
-            detectedCards.forEach(c => { 
-                const div = document.createElement('div');
-                div.className = 'card-item';
-                div.onclick = () => openZoom(c);
-                div.innerHTML = `<img src="${c.image}" class="card-visual"><div class="card-name-mini">${c.name}</div>`;
-                container.appendChild(div);
-            });
-        }
-
         function closeResult() { document.getElementById('result-box').style.display = 'none'; }
         
         function openZoom(card) {
             const modal = document.getElementById('zoom-modal');
-            const placeholder = document.getElementById('zoom-media-placeholder');
-            placeholder.innerHTML = `<img src="${card.image}" style="max-width: 90vw; max-height: 70vh; border: 2px solid #d4af37;">`;
-            modal.style.display = 'flex';
-        }
-        function closeZoom() { document.getElementById('zoom-modal').style.display = 'none'; }
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AURA SCANNER: HARDCORE</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Roboto:wght@300;400&display=swap" rel="stylesheet">
-    
-    <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Roboto', sans-serif; color: #d4af37; }
-        #container { position: relative; width: 100vw; height: 100vh; }
-        
-        video#input-video { width: 100%; height: 100%; object-fit: cover; display: none; }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; }
-
-        /* ИНТЕРФЕЙС */
-        .ui-layer { position: absolute; top:0; left:0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; z-index: 20; }
-        
-        .top-panel { background: rgba(0,0,0,0.85); padding: 15px; pointer-events: auto; border-bottom: 2px solid #d4af37; text-align: center; }
-        .app-title { font-family: 'Cinzel', serif; font-size: 22px; color: #d4af37; letter-spacing: 3px; text-shadow: 0 0 10px rgba(212, 175, 55, 0.5); }
-        
-        .bottom-panel { padding: 30px; pointer-events: auto; text-align: center; background: linear-gradient(to top, rgba(0,0,0,0.95), transparent); }
-        .scan-btn { background: #d4af37; color: #000; border: 4px solid #bba078; width: 85px; height: 85px; border-radius: 50%; font-size: 40px; box-shadow: 0 0 30px rgba(212, 175, 55, 0.4); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 0.1s; }
-        .scan-btn:active { transform: scale(0.95); }
-
-        /* ПРИЦЕЛ (HUD) */
-        .hud-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.8; }
-        
-        .crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; }
-        .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(212, 175, 55, 0.8); }
-        .crosshair::before { top: 19px; left: 0; width: 40px; height: 2px; } 
-        .crosshair::after { top: 0; left: 19px; width: 2px; height: 40px; } 
-
-        .scan-frame { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            width: 80%; height: 60%; 
-            border: 2px solid rgba(212, 175, 55, 0.3); 
-            border-radius: 20px; 
-            box-shadow: 0 0 60px rgba(0,0,0,0.5) inset; 
-            animation: breathe 3s infinite ease-in-out; 
-        }
-        .corner { position: absolute; width: 30px; height: 30px; border-color: #d4af37; border-style: solid; border-width: 0; }
-        .tl { top: -2px; left: -2px; border-top-width: 4px; border-left-width: 4px; border-radius: 10px 0 0 0; }
-        .tr { top: -2px; right: -2px; border-top-width: 4px; border-right-width: 4px; border-radius: 0 10px 0 0; }
-        .bl { bottom: -2px; left: -2px; border-bottom-width: 4px; border-left-width: 4px; border-radius: 0 0 0 10px; }
-        .br { bottom: -2px; right: -2px; border-bottom-width: 4px; border-right-width: 4px; border-radius: 0 0 10px 0; }
-        @keyframes breathe { 0% { opacity: 0.5; border-color: rgba(212, 175, 55, 0.2); } 50% { opacity: 1; border-color: rgba(212, 175, 55, 0.7); } 100% { opacity: 0.5; border-color: rgba(212, 175, 55, 0.2); } }
-
-        /* РЕЗУЛЬТАТ */
-        #result-box { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #111; z-index: 100; display: none; pointer-events: auto; flex-direction: column; }
-        .result-scroll-area { flex: 1; overflow-y: auto; padding: 20px; text-align: center; }
-        .cards-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 30px; margin-top: 20px;}
-        .card-item { width: 30%; min-width: 90px; max-width: 140px; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
-        .card-visual { width: 100%; border-radius: 6px; border: 1px solid #d4af37; }
-        .card-name-mini { font-size: 12px; margin-top: 8px; color: #fff; text-align: center; font-family: 'Cinzel', serif; }
-        .close-res { margin: 20px; padding: 15px 40px; background: transparent; color: #d4af37; border: 1px solid #d4af37; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; font-family: 'Cinzel', serif; transition: 0.3s; }
-        .close-res:hover { background: #d4af37; color: #000; }
-
-        /* ЗУМ */
-        #zoom-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 200; display: none; justify-content: center; align-items: center; flex-direction: column; }
-        #zoom-title { color: #d4af37; font-family: 'Cinzel', serif; font-size: 24px; margin-bottom: 20px; }
-        
-        /* ЭКРАН ЗАГРУЗКИ */
-        #start-screen { position: absolute; top:0; left:0; width:100%; height:100%; background:#000; z-index:999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
-        .logo-text { font-family: 'Cinzel', serif; font-size: 32px; color: #d4af37; margin-bottom: 40px; text-align: center; letter-spacing: 4px; border-bottom: 1px solid #d4af37; padding-bottom: 10px; text-shadow: 0 0 15px #d4af37; }
-        #big-start-btn { padding: 15px 40px; font-size: 16px; background: transparent; color: #d4af37; border: 1px solid #d4af37; text-transform: uppercase; letter-spacing: 2px; cursor: pointer; transition: all 0.3s; }
-        
-        .status-text { position: absolute; bottom: 130px; width: 100%; text-align: center; font-size: 20px; font-weight: bold; letter-spacing: 1px; text-shadow: 0 0 5px #000; color: #fff; background: rgba(0,0,0,0.4); padding: 8px; font-family: 'Cinzel', serif; }
-        #error-log { color: #ff5555; margin-top: 15px; font-size: 12px; max-width: 80%; text-align: center; }
-    </style>
-</head>
-<body>
-
-    <div id="container">
-        <div id="start-screen">
-            <div class="logo-text">AURA<br>SCANNER</div>
-            <button id="big-start-btn" onclick="initSystem()">ЗАПУСК</button>
-            <div id="loading-text" style="color: #666; margin-top: 15px; font-size: 12px; display: none;">Загрузка нейросети (Hardcore)...</div>
-            <div id="error-log"></div>
-        </div>
-
-        <video id="input-video" playsinline muted autoplay></video>
-        <canvas id="canvas"></canvas>
-        
-        <div class="hud-layer">
-            <div class="scan-frame">
-                <div class="corner tl"></div><div class="corner tr"></div>
-                <div class="corner bl"></div><div class="corner br"></div>
-            </div>
-            <div class="crosshair"></div>
-        </div>
-        
-        <div class="ui-layer">
-            <div class="top-panel"><div class="app-title">AURA PROJECT</div></div>
-            <div id="status" class="status-text">ОЖИДАНИЕ...</div>
-            <div class="bottom-panel"><button class="scan-btn" onclick="captureRead()">📷</button></div>
-        </div>
-
-        <div id="result-box">
-            <div class="result-scroll-area">
-                <h2 style="color: #d4af37; font-family: 'Cinzel'; margin-bottom: 10px;">ОТВЕТ АУРЫ</h2>
-                <div id="cards-container" class="cards-row"></div>
-            </div>
-            <button class="close-res" onclick="closeResult()">НОВЫЙ СКАН</button>
-        </div>
-
-        <div id="zoom-modal" onclick="closeZoom()">
-            <div id="zoom-title">Карта</div>
-            <div id="zoom-media-placeholder"></div>
-        </div>
-    </div>
-
-    <script>
-        // === 1. БАЗА КАРТ "АУРА" (80 КАРТ) ===
-        // Собрано на основе твоего файла 'прямые ссылки.txt'
-        const BASE_IMG_URL = "https://cdn.jsdelivr.net/gh/marataitester-blip/tarot/";
-        const TAROT_DATA = [];
-
-        // Старшие Арканы (24 карты: 00-21 + Hero + White)
-        const majors = [
-            "00_fool", "01_magician", "02_high_priestess", "03_empress", "04_emperor", "05_hierophant",
-            "06_lovers", "07_chariot", "08_justice", "09_hermit", "10_wheel_of_fortune", "11_strength",
-            "12_hanged_man", "13_death", "14_temperance", "15_devil", "16_tower", "17_star",
-            "18_moon", "19_sun", "20_judgement", "21_world", "22_hero", "23_white_card"
-        ];
-        
-        majors.forEach(name => {
-            // Делаем красивое имя из файла: "00_fool" -> "Fool"
-            let niceName = name.split('_').slice(1).join(' ').toUpperCase();
-            TAROT_DATA.push({ name: niceName, image: `${BASE_IMG_URL}${name}.png` });
-        });
-
-        // Младшие Арканы (56 карт)
-        const suits = ["wands", "cups", "swords", "pentacles"];
-        const ranks = ["01_ace", "02_two", "03_three", "04_four", "05_five", "06_six", "07_seven", 
-                       "08_eight", "09_nine", "10_ten", "11_page", "12_knight", "13_queen", "14_king"];
-
-        suits.forEach(s => {
-            ranks.forEach(r => {
-                // Имя файла: wands_01_ace -> wands_01_ace.png
-                let niceName = `${r.split('_')[2]} of ${s}`.toUpperCase();
-                // Для чисел (two, three...)
-                if (!isNaN(niceName.charAt(0))) niceName = `${r.split('_')[1]} of ${s}`.toUpperCase();
-                
-                TAROT_DATA.push({ name: niceName, image: `${BASE_IMG_URL}${s}_${r}.png` });
-            });
-        });
-
-        // === 2. НАСТРОЙКИ ===
-        // Имя файла оставляем старое, так как оно так называется в репозитории
-        const MODEL_PATH = './rider_hardcore.onnx'; 
-        const MODEL_SIZE = 800; 
-        const CONFIDENCE = 0.25; 
-        const NMS_THRESHOLD = 0.50;
-
-        let session;
-        let detectedCards = []; 
-        const status = document.getElementById('status');
-
-        ort.env.wasm.numThreads = 2; ort.env.wasm.simd = false;
-
-        async function initSystem() {
-            const btn = document.getElementById('big-start-btn');
-            const loadText = document.getElementById('loading-text');
-            const errorLog = document.getElementById('error-log');
-            btn.style.display = 'none'; loadText.style.display = 'block'; errorLog.innerText = "";
-
-            try {
-                // Камера
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} }, 
-                    audio: false 
-                });
-                const video = document.getElementById('input-video');
-                video.srcObject = stream;
-                video.style.display = 'block'; 
-                await new Promise(r => video.onloadedmetadata = r);
-                
-                // Загрузка модели
-                session = await ort.InferenceSession.create(MODEL_PATH, { executionProviders: ['wasm'] });
-                
-                document.getElementById('start-screen').style.opacity = '0';
-                setTimeout(() => { document.getElementById('start-screen').style.display = 'none'; }, 800);
-                
-                status.innerText = "ПОИСК АУРЫ..."; status.style.color = "#888";
-                detectFrame(video);
-            } catch (e) {
-                console.error(e); 
-                loadText.style.display = 'none'; 
-                btn.style.display = 'inline-block'; 
-                btn.innerText = "ПОВТОРИТЬ";
-                errorLog.innerText = "ОШИБКА: " + e.message;
-            }
-        }
-
-        async function detectFrame(video) {
-            const canvas = document.getElementById('canvas');
-            const mat = document.createElement('canvas');
-            mat.width = MODEL_SIZE; mat.height = MODEL_SIZE;
-            mat.getContext('2d').drawImage(video, 0, 0, MODEL_SIZE, MODEL_SIZE);
-            const data = mat.getContext('2d').getImageData(0,0,MODEL_SIZE,MODEL_SIZE).data;
-            const input = new Float32Array(3 * MODEL_SIZE * MODEL_SIZE);
-            for (let i=0; i<MODEL_SIZE*MODEL_SIZE; i++) {
-                input[i] = data[i*4]/255.0; input[MODEL_SIZE*MODEL_SIZE+i] = data[i*4+1]/255.0; input[2*MODEL_SIZE*MODEL_SIZE+i] = data[i*4+2]/255.0;
-            }
-            const tensor = new ort.Tensor('float32', input, [1, 3, MODEL_SIZE, MODEL_SIZE]);
-
-            try {
-                const results = await session.run({ [session.inputNames[0]]: tensor });
-                const output = results[session.outputNames[0]].data;
-                const rawCards = processAndDraw(output, canvas, video.videoWidth, video.videoHeight);
-                
-                if (document.getElementById('result-box').style.display === 'none') {
-                    detectedCards = rawCards;
-                    if (detectedCards.length > 0) {
-                        status.innerText = `ВИЖУ КАРТ: ${detectedCards.length}`;
-                        status.style.color = "#d4af37"; status.style.textShadow = "0 0 10px #d4af37";
-                    } else {
-                        status.innerText = "ПОИСК...";
-                        status.style.color = "#888"; status.style.textShadow = "none";
-                    }
-                }
-            } catch (e) { console.error(e); }
-            setTimeout(() => requestAnimationFrame(() => detectFrame(video)), 50);
-        }
-
-        function processAndDraw(data, canvas, vW, vH) {
-            const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,vW,vH);
-            
-            // 🔥 Модель была обучена на 80 классах (Aura), поэтому 80+4
-            const numClasses = 80; 
-            const channels = numClasses + 4; 
-            const dynamicAnchors = data.length / channels; 
-            
-            let boxes = [];
-            for (let i=0; i<dynamicAnchors; i++) {
-                let maxConf = 0; let classIdx = 0;
-                for(let c=4; c<channels; c++) { 
-                    // Проверка границ массива (на случай ошибок)
-                    if ((c*dynamicAnchors+i) < data.length) {
-                        const val = data[c*dynamicAnchors+i]; 
-                        if(val > maxConf) { maxConf = val; classIdx = c-4; } 
-                    }
-                }
-                if (maxConf > CONFIDENCE) { 
-                    const x = data[0*dynamicAnchors+i]; const y = data[1*dynamicAnchors+i];
-                    const w = data[2*dynamicAnchors+i]; const h = data[3*dynamicAnchors+i];
-                    boxes.push({ x: x, y: y, w: w, h: h, score: maxConf, classId: classIdx });
-                }
-            }
-            boxes.sort((a,b) => b.score - a.score);
-            const cleanBoxes = [];
-            while(boxes.length > 0) {
-                const best = boxes.shift(); cleanBoxes.push(best);
-                boxes = boxes.filter(b => {
-                    const x1 = Math.max(best.x - best.w/2, b.x - b.w/2); const y1 = Math.max(best.y - best.h/2, b.y - b.h/2);
-                    const x2 = Math.min(best.x + best.w/2, b.x + b.w/2); const y2 = Math.min(best.y + best.h/2, b.y + b.h/2);
-                    if (x2 < x1 || y2 < y1) return true;
-                    return ((x2-x1)*(y2-y1)) / (best.w*best.h + b.w*b.h - (x2-x1)*(y2-y1)) < NMS_THRESHOLD;
-                });
-            }
-            
-            const sx = vW/MODEL_SIZE; const sy = vH/MODEL_SIZE; const finalCards = [];
-            ctx.lineWidth = 2; ctx.font = "16px Roboto"; 
-            
-            cleanBoxes.forEach(box => {
-                const realX = (box.x - box.w/2) * sx; const realY = (box.y - box.h/2) * sy;
-                ctx.strokeStyle = "rgba(212, 175, 55, 0.8)"; 
-                ctx.strokeRect(realX, realY, box.w * sx, box.h * sy);
-                
-                let card = TAROT_DATA[box.classId];
-                if(card) {
-                    finalCards.push({ id: box.classId, x: realX, name: card.name, image: card.image });
-                    ctx.fillStyle = "#d4af37"; ctx.fillText(card.name, realX, realY - 10);
-                }
-            });
-            const unique = []; const seen = new Set();
-            for (const c of finalCards) { if (!seen.has(c.id)) { seen.add(c.id); unique.push(c); } }
-            return unique;
-        }
-
-        function captureRead() {
-            if (detectedCards.length === 0) { alert("Не вижу карт!"); return; }
-            detectedCards.sort((a, b) => a.x - b.x); 
-            renderResult();
-            document.getElementById('result-box').style.display = 'flex';
-        }
-
-        function renderResult() {
-            const container = document.getElementById('cards-container');
-            container.innerHTML = "";
-            detectedCards.forEach(c => { 
-                const div = document.createElement('div');
-                div.className = 'card-item';
-                div.onclick = () => openZoom(c);
-                div.innerHTML = `<img src="${c.image}" class="card-visual"><div class="card-name-mini">${c.name}</div>`;
-                container.appendChild(div);
-            });
-        }
-
-        function closeResult() { document.getElementById('result-box').style.display = 'none'; }
-        
-        function openZoom(card) {
-            const modal = document.getElementById('zoom-modal');
-            const placeholder = document.getElementById('zoom-media-placeholder');
-            placeholder.innerHTML = `<img src="${card.image}" style="max-width: 90vw; max-height: 70vh; border: 2px solid #d4af37;">`;
+            document.getElementById('zoom-media-placeholder').innerHTML = `<img src="${card.image}" style="max-width: 90vw; max-height: 70vh; border: 2px solid #d4af37;">`;
+            document.getElementById('zoom-title').innerText = card.name;
             modal.style.display = 'flex';
         }
         function closeZoom() { document.getElementById('zoom-modal').style.display = 'none'; }
