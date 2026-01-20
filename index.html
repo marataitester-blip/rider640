@@ -229,4 +229,108 @@
             for (let i=0; i<dynamicAnchors; i++) {
                 let maxConf = 0; let classIdx = 0;
                 for(let c=4; c<channels; c++) { const val = data[c*dynamicAnchors+i]; if(val > maxConf) { maxConf = val; classIdx = c-4; } }
-                if (maxConf > CONFIDENCE) {
+                if (maxConf > CONFIDENCE) { 
+                    const x = data[0*dynamicAnchors+i]; const y = data[1*dynamicAnchors+i];
+                    const w = data[2*dynamicAnchors+i]; const h = data[3*dynamicAnchors+i];
+                    boxes.push({ x: x, y: y, w: w, h: h, score: maxConf, classId: classIdx });
+                }
+            }
+            
+            // Фильтр наложений
+            boxes.sort((a,b) => b.score - a.score);
+            const cleanBoxes = [];
+            while(boxes.length > 0) {
+                const best = boxes.shift(); cleanBoxes.push(best);
+                boxes = boxes.filter(b => {
+                    const x1 = Math.max(best.x - best.w/2, b.x - b.w/2); const y1 = Math.max(best.y - best.h/2, b.y - b.h/2);
+                    const x2 = Math.min(best.x + best.w/2, b.x + b.w/2); const y2 = Math.min(best.y + best.h/2, b.y + b.h/2);
+                    if (x2 < x1 || y2 < y1) return true;
+                    return ((x2-x1)*(y2-y1)) / (best.w*best.h + b.w*b.h - (x2-x1)*(y2-y1)) < NMS_THRESHOLD;
+                });
+            }
+
+            lastDetections = cleanBoxes; // Сохраняем для снимка
+            statusBadge.innerText = `Вижу карт: ${cleanBoxes.length}`;
+
+            // Рисуем на экране
+            const sx = canvas.width / MODEL_SIZE; const sy = canvas.height / MODEL_SIZE;
+            ctx.lineWidth = 3; ctx.strokeStyle = "#00ff00"; // Ярко-зеленый
+            
+            cleanBoxes.forEach(box => {
+                const x = (box.x - box.w/2) * sx; const y = (box.y - box.h/2) * sy;
+                ctx.strokeRect(x, y, box.w * sx, box.h * sy);
+            });
+        }
+
+        // === 6. СНИМОК И ВИЗУАЛИЗАЦИЯ ===
+        function captureSnapshot() {
+            if (lastDetections.length === 0) { alert("Я не вижу карт! Наведите камеру."); return; }
+            
+            isPaused = true;
+            video.pause();
+            
+            document.getElementById('shutter').style.display = 'none';
+            document.getElementById('retry').style.display = 'inline-block';
+            document.getElementById('result-popup').style.display = 'flex';
+
+            renderVisualLayout(lastDetections);
+        }
+
+        // === 7. ГЕНЕРАЦИЯ ВИЗУАЛЬНОГО РАСКЛАДА (КЛЮЧЕВОЙ МОМЕНТ) ===
+        function renderVisualLayout(boxes) {
+            const container = document.getElementById('layout-view');
+            container.innerHTML = "";
+            
+            // 1. Находим границы всего расклада
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            boxes.forEach(b => {
+                minX = Math.min(minX, b.x - b.w/2);
+                maxX = Math.max(maxX, b.x + b.w/2);
+                minY = Math.min(minY, b.y - b.h/2);
+                maxY = Math.max(maxY, b.y + b.h/2);
+            });
+
+            const totalW = maxX - minX;
+            const totalH = maxY - minY;
+
+            // 2. Создаем картинки с позициями в %
+            boxes.forEach(box => {
+                let cardInfo = TAROT_DATA[box.classId];
+                if (!cardInfo) return; // Защита
+
+                // Нормализуем координаты относительно группы карт (0..100%)
+                const relX = ((box.x - box.w/2 - minX) / totalW) * 90; // 90% чтобы не прилипало к краю
+                const relY = ((box.y - box.h/2 - minY) / totalH) * 85; 
+                
+                // Размер карты относительно расклада
+                const relW = (box.w / totalW) * 90;
+                
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'detected-card';
+                // Стиль для позиционирования
+                cardDiv.style.left = (relX + 5) + "%"; // +5 отступ
+                cardDiv.style.top = (relY + 5) + "%";
+                cardDiv.style.width = relW + "%";
+                // Высоту считаем через aspect ratio карты (примерно 1.6)
+                // Но проще задать авто-высоту по картинке
+                
+                cardDiv.innerHTML = `
+                    <img src="${cardInfo.img}">
+                    <span>${cardInfo.name}</span>
+                `;
+                
+                container.appendChild(cardDiv);
+            });
+        }
+
+        function resetSystem() {
+            isPaused = false;
+            video.play();
+            document.getElementById('shutter').style.display = 'block';
+            document.getElementById('retry').style.display = 'none';
+            document.getElementById('result-popup').style.display = 'none';
+            detectLoop();
+        }
+    </script>
+</body>
+</html>
