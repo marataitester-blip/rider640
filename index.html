@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Tarot SAHI 640</title>
+  <title>Tarot SAHI 640 · v0.3</title>
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
   <style>
     body {
@@ -39,13 +39,27 @@
       justify-content: space-between;
     }
 
+    /* ВЕРХНЯЯ ПАНЕЛЬ + КНОПКА */
+    .top-zone {
+      padding-top: 28px; /* отступ от верхней панели iOS */
+      background: linear-gradient(180deg, rgba(0,0,0,0.95), transparent);
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
     .top-bar {
-      padding: 10px 14px;
-      padding-top: 26px; /* чуть ниже от системной панели */
-      background: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent);
+      padding: 4px 14px 0 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      pointer-events: auto;
+    }
+    .status-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
     .status {
       font-size: 11px;
@@ -57,13 +71,44 @@
       font-size: 10px;
       color: #888;
     }
+    .version {
+      font-size: 10px;
+      color: #666;
+    }
     .card-count {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: bold;
       color: #ffd700;
       text-shadow: 0 1px 3px #000;
     }
 
+    .top-controls {
+      display: flex;
+      justify-content: center;
+      padding: 6px 0 8px 0;
+      pointer-events: auto;
+    }
+    #scan-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      background: transparent;
+      cursor: pointer;
+      position: relative;
+      transition: 0.25s;
+      opacity: 0.85;
+    }
+    #scan-btn:active {
+      transform: scale(0.9);
+      border-color: #ffd700;
+    }
+    #scan-btn.processing {
+      border-color: #ffd700;
+      box-shadow: 0 0 12px rgba(255, 215, 0, 0.9);
+    }
+
+    /* СЕТКА "СТОЛА" */
     .grid-overlay {
       position: absolute;
       top: 50%;
@@ -73,6 +118,7 @@
       height: 70%;
       border: 1px solid rgba(255, 255, 255, 0.25);
       box-shadow: 0 0 18px rgba(0, 0, 0, 0.6);
+      pointer-events: none;
     }
     .grid-corner {
       position: absolute;
@@ -86,32 +132,11 @@
     .bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
     .br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
 
-    .controls {
-      padding: 6px 24px 34px 24px; /* выше от нижней кромки */
-      display: flex;
-      justify-content: center;
-      background: linear-gradient(0deg, rgba(0,0,0,0.95), transparent);
-      pointer-events: auto;
-    }
-
-    #scan-btn {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      border: 2px solid rgba(255, 255, 255, 0.7);
-      background: transparent;
-      cursor: pointer;
-      position: relative;
-      transition: 0.25s;
-      opacity: 0.8;
-    }
-    #scan-btn:active {
-      transform: scale(0.9);
-      border-color: #ffd700;
-    }
-    #scan-btn.processing {
-      border-color: #ffd700;
-      box-shadow: 0 0 12px rgba(255, 215, 0, 0.9);
+    /* НИЖНЯЯ ЗОНА (пустая, для зазора от свайпов iOS) */
+    .bottom-zone {
+      height: 30px;
+      pointer-events: none;
+      background: linear-gradient(0deg, rgba(0,0,0,0.9), transparent);
     }
 
     #loader {
@@ -137,8 +162,8 @@
 </head>
 <body>
 <div id="loader">
-  <div class="loader-title">Загрузка модели...</div>
-  <div class="loader-text">Разреши доступ к камере, затем подожди</div>
+  <div class="loader-title">Tarot SAHI 640 · v0.3</div>
+  <div class="loader-text">Разреши доступ к камере и подожди несколько секунд</div>
 </div>
 
 <div id="container">
@@ -146,12 +171,18 @@
   <canvas id="output"></canvas>
 
   <div id="ui-layer">
-    <div class="top-bar">
-      <div>
-        <div class="status" id="status-text">INIT</div>
-        <div class="sub-text">YOLOv10s · SAHI · 640px</div>
+    <div class="top-zone">
+      <div class="top-bar">
+        <div class="status-block">
+          <div class="status" id="status-text">INIT</div>
+          <div class="sub-text">YOLOv10s · SAHI · 640px</div>
+          <div class="version">build: v0.3 · onnxruntime-web</div>
+        </div>
+        <div class="card-count"><span id="count">0</span></div>
       </div>
-      <div class="card-count"><span id="count">0</span></div>
+      <div class="top-controls">
+        <div id="scan-btn" onclick="captureSAHI()"></div>
+      </div>
     </div>
 
     <div class="grid-overlay">
@@ -161,9 +192,7 @@
       <div class="grid-corner br"></div>
     </div>
 
-    <div class="controls">
-      <div id="scan-btn" onclick="captureSAHI()"></div>
-    </div>
+    <div class="bottom-zone"></div>
   </div>
 </div>
 
@@ -175,7 +204,8 @@
     inputSize: 640,
     tilesX: 3,
     tilesY: 2,
-    maxCards: 11
+    maxCards: 11,
+    build: 'v0.3'
   };
 
   let session;
@@ -199,7 +229,7 @@
       video.onloadedmetadata = () => {
         video.play();
         resizeCanvas();
-        drawPreviewFrame(); // один кадр вместо постоянного цикла
+        drawPreviewFrame();
       };
 
       session = await ort.InferenceSession.create(CONFIG.modelPath, {
@@ -218,272 +248,4 @@
 
   function resizeCanvas() {
     canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  window.addEventListener('resize', resizeCanvas);
-
-  function drawPreviewFrame() {
-    if (!video.videoWidth || !video.videoHeight) return;
-    resizeCanvas();
-
-    const vRatio = video.videoWidth / video.videoHeight;
-    const cRatio = canvas.width / canvas.height;
-    let dw, dh, dx, dy;
-    if (vRatio > cRatio) {
-      dh = canvas.height;
-      dw = dh * vRatio;
-      dx = (canvas.width - dw) / 2;
-      dy = 0;
-    } else {
-      dw = canvas.width;
-      dh = dw / vRatio;
-      dy = (canvas.height - dh) / 2;
-      dx = 0;
-    }
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(video, dx, dy, dw, dh);
-  }
-
-  async function captureSAHI() {
-    if (isProcessing) return;
-    isProcessing = true;
-
-    const btn = document.getElementById('scan-btn');
-    const status = document.getElementById('status-text');
-    btn.classList.add('processing');
-    status.innerText = 'СКАНИРОВАНИЕ...';
-    status.style.color = '#ffd700';
-
-    drawPreviewFrame(); // зафиксировать текущий кадр
-
-    const fullCvs = document.createElement('canvas');
-    fullCvs.width = video.videoWidth;
-    fullCvs.height = video.videoHeight;
-    const fctx = fullCvs.getContext('2d');
-    fctx.drawImage(video, 0, 0);
-
-    const tiles = generateTiles(fullCvs.width, fullCvs.height);
-    let globalBoxes = [];
-
-    for (let tile of tiles) {
-      const tileData = fctx.getImageData(tile.x, tile.y, tile.w, tile.h);
-      const inputTensor = await preprocess(tileData, CONFIG.inputSize);
-
-      const feeds = {};
-      feeds[modelInputName] = inputTensor;
-      const results = await session.run(feeds);
-      const output = results[session.outputNames[0]];
-
-      const localBoxes = parseYOLOOutput(output);
-      const scaleX = tile.w / CONFIG.inputSize;
-      const scaleY = tile.h / CONFIG.inputSize;
-
-      localBoxes.forEach(box => {
-        const [x, y, w, h, score, cls] = box;
-        const gx = x * scaleX + tile.x;
-        const gy = y * scaleY + tile.y;
-        const gw = w * scaleX;
-        const gh = h * scaleY;
-        globalBoxes.push([gx, gy, gw, gh, score, cls]);
-      });
-    }
-
-    const finalBoxes = nms(globalBoxes);
-    drawLayout(finalBoxes, fullCvs);
-
-    document.getElementById('count').innerText = finalBoxes.length;
-    status.innerText = 'ГОТОВО';
-    status.style.color = '#00ff9d';
-    btn.classList.remove('processing');
-
-    isProcessing = false;
-  }
-
-  function generateTiles(w, h) {
-    const tiles = [];
-    const stepX = w / CONFIG.tilesX;
-    const stepY = h / CONFIG.tilesY;
-    const tileW = stepX * 1.2;
-    const tileH = stepY * 1.2;
-
-    for (let y = 0; y < h; y += stepY) {
-      for (let x = 0; x < w; x += stepX) {
-        let tx = x;
-        let ty = y;
-        if (tx + tileW > w) tx = w - tileW;
-        if (ty + tileH > h) ty = h - tileH;
-        if (tx < 0) tx = 0;
-        if (ty < 0) ty = 0;
-        tiles.push({ x: tx, y: ty, w: tileW, h: tileH });
-      }
-    }
-    return tiles;
-  }
-
-  async function preprocess(imageData, targetSize) {
-    const tempCvs = document.createElement('canvas');
-    tempCvs.width = targetSize;
-    tempCvs.height = targetSize;
-    const tctx = tempCvs.getContext('2d');
-
-    const bitmap = await createImageBitmap(imageData);
-    tctx.drawImage(bitmap, 0, 0, targetSize, targetSize);
-
-    const resized = tctx.getImageData(0, 0, targetSize, targetSize);
-    const data = resized.data;
-    const float32 = new Float32Array(3 * targetSize * targetSize);
-
-    for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-      float32[j] = data[i] / 255.0;
-      float32[j + targetSize * targetSize] = data[i + 1] / 255.0;
-      float32[j + 2 * targetSize * targetSize] = data[i + 2] / 255.0;
-    }
-    return new ort.Tensor('float32', float32, [1, 3, targetSize, targetSize]);
-  }
-
-  function parseYOLOOutput(output) {
-    const boxes = [];
-    const dims = output.dims;
-    const data = output.data;
-
-    if (dims[2] === 6) {
-      const numDets = dims[1];
-      for (let i = 0; i < numDets; i++) {
-        const o = i * 6;
-        const score = data[o + 4];
-        if (score < CONFIG.confThreshold) continue;
-        const x1 = data[o];
-        const y1 = data[o + 1];
-        const x2 = data[o + 2];
-        const y2 = data[o + 3];
-        const cls = data[o + 5];
-        const w = x2 - x1;
-        const h = y2 - y1;
-        boxes.push([x1, y1, w, h, score, cls]);
-      }
-    } else {
-      const numClasses = dims[1] - 4;
-      const numAnchors = dims[2];
-      for (let i = 0; i < numAnchors; i++) {
-        let maxScore = 0;
-        let cls = -1;
-        for (let c = 0; c < numClasses; c++) {
-          const s = data[(4 + c) * numAnchors + i];
-          if (s > maxScore) {
-            maxScore = s;
-            cls = c;
-          }
-        }
-        if (maxScore < CONFIG.confThreshold) continue;
-
-        const x = data[0 * numAnchors + i];
-        const y = data[1 * numAnchors + i];
-        const w = data[2 * numAnchors + i];
-        const h = data[3 * numAnchors + i];
-        boxes.push([x - w / 2, y - h / 2, w, h, maxScore, cls]);
-      }
-    }
-    return boxes;
-  }
-
-  function nms(boxes) {
-    if (!boxes.length) return [];
-    boxes.sort((a, b) => b[4] - a[4]);
-    const selected = [];
-    const active = new Array(boxes.length).fill(true);
-
-    for (let i = 0; i < boxes.length; i++) {
-      if (!active[i]) continue;
-      selected.push(boxes[i]);
-      for (let j = i + 1; j < boxes.length; j++) {
-        if (!active[j]) continue;
-        const iou = getIoU(boxes[i], boxes[j]);
-        if (iou > CONFIG.nmsThreshold) active[j] = false;
-      }
-    }
-    return selected;
-  }
-
-  function getIoU(a, b) {
-    const x1 = Math.max(a[0], b[0]);
-    const y1 = Math.max(a[1], b[1]);
-    const x2 = Math.min(a[0] + a[2], b[0] + b[2]);
-    const y2 = Math.min(a[1] + a[3], b[1] + b[3]);
-    const iw = Math.max(0, x2 - x1);
-    const ih = Math.max(0, y2 - y1);
-    const inter = iw * ih;
-    const areaA = a[2] * a[3];
-    const areaB = b[2] * b[3];
-    return inter / (areaA + areaB - inter + 1e-6);
-  }
-
-  function normalizeLayout(boxes, imgW, imgH, maxCards) {
-    const sorted = boxes
-      .slice()
-      .sort((a, b) => (a[1] - b[1]) || (a[0] - b[0]))
-      .slice(0, maxCards);
-
-    return sorted.map((b, idx) => {
-      const [x, y, w, h, score, cls] = b;
-      const cx = x + w / 2;
-      const cy = y + h / 2;
-      const nx = cx / imgW;
-      const ny = cy / imgH;
-      const aspect = h / (w + 1e-6);
-      let angle = 0;
-      if (aspect < 0.7) angle = 90;
-      else if (aspect > 1.3) angle = 0;
-      return { idx, score, cls, nx, ny, angle };
-    });
-  }
-
-  function drawLayout(boxes, fullImg) {
-    drawPreviewFrame();
-
-    const layout = normalizeLayout(
-      boxes,
-      fullImg.width,
-      fullImg.height,
-      CONFIG.maxCards
-    );
-
-    const tableMarginX = canvas.width * 0.05;
-    const tableMarginY = canvas.height * 0.12;
-    const tableW = canvas.width - tableMarginX * 2;
-    const tableH = canvas.height - tableMarginY * 2;
-
-    const cardW = tableW / 6;
-    const cardH = cardW * 1.6;
-
-    layout.forEach((card, i) => {
-      const { nx, ny, angle, score } = card;
-      const px = tableMarginX + nx * tableW;
-      const py = tableMarginY + ny * tableH;
-
-      ctx.save();
-      ctx.translate(px, py);
-      ctx.rotate((angle * Math.PI) / 180);
-
-      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(-cardW / 2, -cardH / 2, cardW, cardH);
-
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.fillRect(-cardW / 2, -cardH / 2 - 16, 48, 14);
-      ctx.fillStyle = '#ffd700';
-      ctx.font = '10px Arial';
-      ctx.fillText(
-        '#' + (i + 1) + ' ' + (score * 100).toFixed(0) + '%',
-        -cardW / 2 + 2,
-        -cardH / 2 - 4
-      );
-
-      ctx.restore();
-    });
-  }
-
-  init();
-</script>
-</body>
-</html>
+    ca
