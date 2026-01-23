@@ -6,7 +6,9 @@
     name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
   />
-  <title>Tarot Camera Core · v1.0</title>
+  <title>Tarot YOLO 640 · core v2.0</title>
+  <!-- ONNX Runtime Web -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
   <style>
     body {
       margin: 0;
@@ -65,6 +67,39 @@
       font-size: 10px;
       color: #666;
     }
+    .right-top {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+    .btn-row {
+      margin-top: 8px;
+      display: flex;
+      justify-content: center;
+      pointer-events: auto;
+    }
+    #scan-btn {
+      min-width: 80px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      background: rgba(0, 0, 0, 0.4);
+      color: #fff;
+      font-size: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    #scan-btn:active {
+      transform: scale(0.95);
+      border-color: #ffd700;
+      background: rgba(255, 215, 0, 0.2);
+    }
+    #scan-btn.disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
     #error-box {
       position: absolute;
       left: 8px;
@@ -88,15 +123,20 @@
     <canvas id="canvas"></canvas>
 
     <div id="ui">
-      <div class="top">
-        <div class="block">
-          <div class="status" id="status-text">INIT</div>
-          <div class="sub">Camera core test</div>
-          <div class="version">build: cam-core v1.0</div>
+      <div>
+        <div class="top">
+          <div class="block">
+            <div class="status" id="status-text">INIT</div>
+            <div class="sub">YOLO onnx 640 test</div>
+            <div class="version">build: core-v2.0 · rider_8k_640.onnx</div>
+          </div>
+          <div class="right-top">
+            <div class="sub" id="info-res"></div>
+            <div class="sub" id="info-device"></div>
+          </div>
         </div>
-        <div class="block" style="align-items: flex-end">
-          <div class="sub" id="info-res"></div>
-          <div class="sub" id="info-device"></div>
+        <div class="btn-row">
+          <div id="scan-btn" class="disabled">SCAN</div>
         </div>
       </div>
       <div id="error-box"></div>
@@ -104,101 +144,19 @@
   </div>
 
   <script>
-    // Ловим любые JavaScript-ошибки
-    window.onerror = function (msg, url, line, col, error) {
-      const box = document.getElementById("error-box");
-      if (box) {
-        box.textContent = "JS ERROR: " + msg + " @ " + line + ":" + col;
-      }
-      console.log("window.onerror", msg, url, line, col, error);
+    const CONFIG = {
+      modelPath: "./rider_8k_640.onnx",
+      inputSize: 640,
+      confThreshold: 0.25,
+      nmsThreshold: 0.45,
     };
 
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+    let session = null;
+    let modelInputName = "";
+    let video = document.getElementById("video");
+    let canvas = document.getElementById("canvas");
+    let ctx = canvas.getContext("2d");
+    let isScanning = false;
 
-    function showError(msg) {
-      const box = document.getElementById("error-box");
-      box.textContent = msg;
-      console.log(msg);
-    }
-
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    window.addEventListener("resize", resize);
-
-    async function initCam() {
-      try {
-        document.getElementById("status-text").innerText = "INIT CAMERA";
-
-        // Пишем информацию об устройстве
-        document.getElementById("info-device").innerText =
-          navigator.userAgent || "no UA";
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-          audio: false,
-        });
-
-        video.srcObject = stream;
-        video.onloadedmetadata = () => {
-          try {
-            video.play();
-            resize();
-            drawFrame();
-            document.getElementById("status-text").innerText = "OK";
-            document.getElementById("info-res").innerText =
-              "video: " +
-              video.videoWidth +
-              "×" +
-              video.videoHeight +
-              " / screen: " +
-              window.innerWidth +
-              "×" +
-              window.innerHeight;
-            showError("OK: камера работает, картинка должна быть видна");
-          } catch (e) {
-            showError("Video metadata error: " + e.message);
-          }
-        };
-      } catch (e) {
-        showError("CAM ERROR: " + e.name + " · " + e.message);
-      }
-    }
-
-    function drawFrame() {
-      if (!video.videoWidth || !video.videoHeight) {
-        requestAnimationFrame(drawFrame);
-        return;
-      }
-      resize();
-      const vRatio = video.videoWidth / video.videoHeight;
-      const cRatio = canvas.width / canvas.height;
-      let dw, dh, dx, dy;
-      if (vRatio > cRatio) {
-        dh = canvas.height;
-        dw = dh * vRatio;
-        dx = (canvas.width - dw) / 2;
-        dy = 0;
-      } else {
-        dw = canvas.width;
-        dh = dw / vRatio;
-        dy = (canvas.height - dh) / 2;
-        dx = 0;
-      }
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(video, dx, dy, dw, dh);
-      requestAnimationFrame(drawFrame);
-    }
-
-    initCam();
-  </script>
-</body>
-</html>
+    // Ловим любые JS-ошибки
+    window.onerror = function (msg, url, 
