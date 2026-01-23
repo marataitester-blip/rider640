@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tarot Camera Test · v0.1</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: "Courier New", monospace;
+      overflow: hidden;
+    }
+    #container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+    }
+    video { display: none; }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+    #ui {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .top {
+      padding-top: 28px;
+      padding-inline: 14px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.95), transparent);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .status {
+      font-size: 11px;
+      color: #00ff9d;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .sub {
+      font-size: 10px;
+      color: #888;
+    }
+    .version {
+      font-size: 10px;
+      color: #666;
+    }
+    #error-box {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 20px;
+      font-size: 11px;
+      color: #ff8080;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,0,0,0.5);
+      border-radius: 6px;
+      padding: 4px 6px;
+      pointer-events: none;
+      min-height: 16px;
+      white-space: pre-line;
+    }
+  </style>
+</head>
+<body>
+<div id="container">
+  <video id="video" playsinline autoplay muted></video>
+  <canvas id="canvas"></canvas>
+
+  <div id="ui">
+    <div class="top">
+      <div class="status-block">
+        <div class="status" id="status-text">INIT</div>
+        <div class="sub">Camera only test</div>
+        <div class="version">build: cam-test v0.1</div>
+      </div>
+    </div>
+    <div id="error-box"></div>
+  </div>
+</div>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  function showError(msg) {
+    document.getElementById('error-box').textContent = msg;
+    console.log(msg);
+  }
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+
+  async function initCam() {
+    try {
+      document.getElementById('status-text').innerText = 'INIT CAMERA';
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+      video.srcObject = stream;
+      video.onloadedmetadata = () => {
+        video.play();
+        resize();
+        drawFrame();
+        document.getElementById('status-text').innerText = 'OK';
+        showError('OK: камера работает, кадр рисуется');
+      };
+    } catch (e) {
+      showError('CAM ERROR: ' + e.message);
+    }
+  }
+
+  function drawFrame() {
+    if (!video.videoWidth || !video.videoHeight) {
+      requestAnimationFrame(drawFrame);
+      return;
+    }
+    resize();
+    const vRatio = video.videoWidth / video.videoHeight;
+    const cRatio = canvas.width / canvas.height;
+    let dw, dh, dx, dy;
+    if (vRatio > cRatio) {
+      dh = canvas.height;
+      dw = dh * vRatio;
+      dx = (canvas.width - dw) / 2;
+      dy = 0;
+    } else {
+      dw = canvas.width;
+      dh = dw / vRatio;
+      dy = (canvas.height - dh) / 2;
+      dx = 0;
+    }
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, dx, dy, dw, dh);
+    requestAnimationFrame(drawFrame);
+  }
+
+  initCam();
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tarot Camera Test · v0.1</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: "Courier New", monospace;
+      overflow: hidden;
+    }
+    #container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+    }
+    video { display: none; }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+    #ui {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .top {
+      padding-top: 28px;
+      padding-inline: 14px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.95), transparent);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .status {
+      font-size: 11px;
+      color: #00ff9d;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .sub {
+      font-size: 10px;
+      color: #888;
+    }
+    .version {
+      font-size: 10px;
+      color: #666;
+    }
+    #error-box {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 20px;
+      font-size: 11px;
+      color: #ff8080;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,0,0,0.5);
+      border-radius: 6px;
+      padding: 4px 6px;
+      pointer-events: none;
+      min-height: 16px;
+      white-space: pre-line;
+    }
+  </style>
+</head>
+<body>
+<div id="container">
+  <video id="video" playsinline autoplay muted></video>
+  <canvas id="canvas"></canvas>
+
+  <div id="ui">
+    <div class="top">
+      <div class="status-block">
+        <div class="status" id="status-text">INIT</div>
+        <div class="sub">Camera only test</div>
+        <div class="version">build: cam-test v0.1</div>
+      </div>
+    </div>
+    <div id="error-box"></div>
+  </div>
+</div>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  function showError(msg) {
+    document.getElementById('error-box').textContent = msg;
+    console.log(msg);
+  }
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+
+  async function initCam() {
+    try {
+      document.getElementById('status-text').innerText = 'INIT CAMERA';
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+      video.srcObject = stream;
+      video.onloadedmetadata = () => {
+        video.play();
+        resize();
+        drawFrame();
+        document.getElementById('status-text').innerText = 'OK';
+        showError('OK: камера работает, кадр рисуется');
+      };
+    } catch (e) {
+      showError('CAM ERROR: ' + e.message);
+    }
+  }
+
+  function drawFrame() {
+    if (!video.videoWidth || !video.videoHeight) {
+      requestAnimationFrame(drawFrame);
+      return;
+    }
+    resize();
+    const vRatio = video.videoWidth / video.videoHeight;
+    const cRatio = canvas.width / canvas.height;
+    let dw, dh, dx, dy;
+    if (vRatio > cRatio) {
+      dh = canvas.height;
+      dw = dh * vRatio;
+      dx = (canvas.width - dw) / 2;
+      dy = 0;
+    } else {
+      dw = canvas.width;
+      dh = dw / vRatio;
+      dy = (canvas.height - dh) / 2;
+      dx = 0;
+    }
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, dx, dy, dw, dh);
+    requestAnimationFrame(drawFrame);
+  }
+
+  initCam();
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tarot Camera Test · v0.1</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: "Courier New", monospace;
+      overflow: hidden;
+    }
+    #container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+    }
+    video { display: none; }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+    #ui {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .top {
+      padding-top: 28px;
+      padding-inline: 14px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.95), transparent);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .status {
+      font-size: 11px;
+      color: #00ff9d;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .sub {
+      font-size: 10px;
+      color: #888;
+    }
+    .version {
+      font-size: 10px;
+      color: #666;
+    }
+    #error-box {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 20px;
+      font-size: 11px;
+      color: #ff8080;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,0,0,0.5);
+      border-radius: 6px;
+      padding: 4px 6px;
+      pointer-events: none;
+      min-height: 16px;
+      white-space: pre-line;
+    }
+  </style>
+</head>
+<body>
+<div id="container">
+  <video id="video" playsinline autoplay muted></video>
+  <canvas id="canvas"></canvas>
+
+  <div id="ui">
+    <div class="top">
+      <div class="status-block">
+        <div class="status" id="status-text">INIT</div>
+        <div class="sub">Camera only test</div>
+        <div class="version">build: cam-test v0.1</div>
+      </div>
+    </div>
+    <div id="error-box"></div>
+  </div>
+</div>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  function showError(msg) {
+    document.getElementById('error-box').textContent = msg;
+    console.log(msg);
+  }
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+
+  async function initCam() {
+    try {
+      document.getElementById('status-text').innerText = 'INIT CAMERA';
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+      video.srcObject = stream;
+      video.onloadedmetadata = () => {
+        video.play();
+        resize();
+        drawFrame();
+        document.getElementById('status-text').innerText = 'OK';
+        showError('OK: камера работает, кадр рисуется');
+      };
+    } catch (e) {
+      showError('CAM ERROR: ' + e.message);
+    }
+  }
+
+  function drawFrame() {
+    if (!video.videoWidth || !video.videoHeight) {
+      requestAnimationFrame(drawFrame);
+      return;
+    }
+    resize();
+    const vRatio = video.videoWidth / video.videoHeight;
+    const cRatio = canvas.width / canvas.height;
+    let dw, dh, dx, dy;
+    if (vRatio > cRatio) {
+      dh = canvas.height;
+      dw = dh * vRatio;
+      dx = (canvas.width - dw) / 2;
+      dy = 0;
+    } else {
+      dw = canvas.width;
+      dh = dw / vRatio;
+      dy = (canvas.height - dh) / 2;
+      dx = 0;
+    }
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, dx, dy, dw, dh);
+    requestAnimationFrame(drawFrame);
+  }
+
+  initCam();
+</script>
+</body>
+</html>
