@@ -1,454 +1,345 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tarot Reader: YOLOv10 SAHI</title>
-    <!-- Подключаем ONNX Runtime Web -->
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-    <style>
-        body { margin: 0; background: #111; color: #fff; font-family: 'Courier New', monospace; overflow: hidden; }
-        #container { position: relative; width: 100vw; height: 100vh; }
-        video { display: none; } 
-        canvas { display: block; width: 100%; height: 100%; object-fit: cover; }
-        
-        /* UI Слой */
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
-        
-        /* Верхняя панель */
-        .top-bar { 
-            padding: 20px; 
-            background: linear-gradient(180deg, rgba(0,0,0,0.9), transparent); 
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .status { font-size: 12px; color: #00ff9d; text-transform: uppercase; letter-spacing: 1px; }
-        .card-count { font-size: 28px; font-weight: bold; color: #ffd700; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
-        .sub-text { font-size: 10px; color: #aaa; display: block; }
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tarot SAHI 640</title>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      color: #fff;
+      font-family: "Courier New", monospace;
+      overflow: hidden;
+    }
+    #container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+    video {
+      display: none;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #ui-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .top-bar {
+      padding: 16px 20px;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status {
+      font-size: 11px;
+      color: #00ff9d;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .sub-text {
+      font-size: 10px;
+      color: #888;
+    }
+    .card-count {
+      font-size: 22px;
+      font-weight: bold;
+      color: #ffd700;
+      text-shadow: 0 1px 3px #000;
+    }
+    .grid-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%;
+      height: 70%;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      box-shadow: 0 0 18px rgba(0, 0, 0, 0.6);
+    }
+    .grid-corner {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-color: #ffd700;
+      border-style: solid;
+    }
+    .tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+    .tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+    .bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+    .br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
 
-        /* Сетка прицела (Декор) */
-        .grid-overlay {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 80%; height: 70%;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-        }
-        .grid-corner {
-            position: absolute; width: 20px; height: 20px; border-color: #ffd700; border-style: solid;
-        }
-        .tl { top: -1px; left: -1px; border-width: 3px 0 0 3px; }
-        .tr { top: -1px; right: -1px; border-width: 3px 3px 0 0; }
-        .bl { bottom: -1px; left: -1px; border-width: 0 0 3px 3px; }
-        .br { bottom: -1px; right: -1px; border-width: 0 3px 3px 0; }
+    .controls {
+      padding: 8px 30px 26px 30px;
+      display: flex;
+      justify-content: center;
+      background: linear-gradient(0deg, rgba(0, 0, 0, 0.9), transparent);
+      pointer-events: auto;
+    }
+    #scan-btn {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.55);
+      background: transparent;
+      cursor: pointer;
+      position: relative;
+      transition: 0.25s;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
+      opacity: 0.4;
+    }
+    #scan-btn:hover {
+      opacity: 0.7;
+    }
+    #scan-btn.processing {
+      border-color: #ffd700;
+      box-shadow: 0 0 14px rgba(255, 215, 0, 0.8);
+      opacity: 0.8;
+    }
 
-        /* Нижняя панель и кнопка */
-        .controls { 
-            padding: 30px; display: flex; flex-direction: column; align-items: center; 
-            background: linear-gradient(0deg, rgba(0,0,0,0.95), transparent); 
-            pointer-events: auto;
-        }
-        
-        #scan-btn {
-            width: 70px; height: 70px; border-radius: 50%; 
-            border: 2px solid rgba(255,255,255,0.3);
-            background: rgba(255,255,255,0.1); 
-            cursor: pointer; position: relative;
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            box-shadow: 0 0 15px rgba(0,0,0,0.5);
-        }
-        #scan-btn:active { transform: scale(0.9); background: rgba(255,215,0, 0.2); border-color: #ffd700; }
-        #scan-btn::after {
-            content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 50px; height: 50px; background: #fff; border-radius: 50%;
-            transition: 0.3s;
-        }
-        #scan-btn.processing::after {
-            background: #ffd700; width: 20px; height: 20px; border-radius: 4px;
-            animation: pulse 1s infinite;
-        }
-
-        /* Галерея карт */
-        #gallery {
-            width: 100%; height: 90px;
-            display: flex; overflow-x: auto; gap: 8px; padding-bottom: 15px;
-            -webkit-overflow-scrolling: touch;
-        }
-        .captured-card { 
-            height: 100%; border-radius: 6px; border: 1px solid #444; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;
-        }
-        .captured-card:active { transform: scale(1.1); border-color: #ffd700; }
-
-        #loader { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #000; z-index: 999; display: flex; 
-            justify-content: center; align-items: center; flex-direction: column;
-        }
-        .loader-text { margin-top: 15px; color: #666; font-size: 14px; }
-
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-    </style>
+    #loader {
+      position: absolute;
+      inset: 0;
+      background: #000;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .loader-title {
+      color: #ffd700;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    .loader-text {
+      color: #777;
+      font-size: 13px;
+    }
+  </style>
 </head>
 <body>
-
 <div id="loader">
-    <div style="color: #ffd700; font-size: 20px;">Загрузка нейросети...</div>
-    <div class="loader-text">Пожалуйста, подождите</div>
+  <div class="loader-title">Загрузка нейросети...</div>
+  <div class="loader-text">Пожалуйста, подождите 10–20 секунд</div>
 </div>
 
 <div id="container">
-    <video id="video" playsinline autoplay muted></video>
-    <canvas id="output"></canvas>
-    
-    <div id="ui-layer">
-        <div class="top-bar">
-            <div>
-                <div class="status" id="status-text">INIT</div>
-                <span class="sub-text">YOLOv10s / 640px SAHI</span>
-            </div>
-            <div class="card-count"><span id="count">0</span></div>
-        </div>
-        
-        <div class="grid-overlay">
-            <div class="grid-corner tl"></div><div class="grid-corner tr"></div>
-            <div class="grid-corner bl"></div><div class="grid-corner br"></div>
-        </div>
+  <video id="video" playsinline autoplay muted></video>
+  <canvas id="output"></canvas>
 
-        <div class="controls">
-            <div id="gallery"></div>
-            <div id="scan-btn" onclick="captureSAHI()"></div>
-        </div>
+  <div id="ui-layer">
+    <div class="top-bar">
+      <div>
+        <div class="status" id="status-text">INIT</div>
+        <div class="sub-text">YOLOv10s · SAHI · 640px</div>
+      </div>
+      <div class="card-count"><span id="count">0</span></div>
     </div>
+
+    <div class="grid-overlay">
+      <div class="grid-corner tl"></div>
+      <div class="grid-corner tr"></div>
+      <div class="grid-corner bl"></div>
+      <div class="grid-corner br"></div>
+    </div>
+
+    <div class="controls">
+      <div id="scan-btn" onclick="captureSAHI()"></div>
+    </div>
+  </div>
 </div>
 
 <script>
-    // === НАСТРОЙКИ ===
-    const CONFIG = {
-        modelPath: './rider_8k_640.onnx',
-        confThreshold: 0.25,      // Понизил порог, чтобы лучше ловил
-        nmsThreshold: 0.45,       // Порог склейки рамок
-        inputSize: 640,           // Размер входа модели
-        tilesX: 3,                // Кол-во нарезки по ширине (SAHI)
-        tilesY: 2                 // Кол-во нарезки по высоте (SAHI)
-    };
+  const CONFIG = {
+    modelPath: './rider_8k_640.onnx',
+    confThreshold: 0.25,
+    nmsThreshold: 0.45,
+    inputSize: 640,
+    tilesX: 3,
+    tilesY: 2,
+    maxCards: 11
+  };
 
-    let session;
-    let video = document.getElementById('video');
-    let canvas = document.getElementById('output');
-    let ctx = canvas.getContext('2d');
-    let isProcessing = false;
-    let modelInputName = "";
+  let session;
+  let video = document.getElementById('video');
+  let canvas = document.getElementById('output');
+  let ctx = canvas.getContext('2d');
+  let isProcessing = false;
+  let modelInputName = '';
 
-    // --- 1. ЗАПУСК ---
-    async function init() {
-        try {
-            // Камера: просим 1080p или 4K для лучшего кропа
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    facingMode: 'environment', 
-                    width: { ideal: 1920 }, 
-                    height: { ideal: 1080 } 
-                }
-            });
-            video.srcObject = stream;
-            video.onloadedmetadata = () => video.play();
-
-            // ONNX Runtime
-            // Используем wasm, так как webgl иногда глючит с кастомными слоями YOLOv10
-            session = await ort.InferenceSession.create(CONFIG.modelPath, { 
-                executionProviders: ['wasm'],
-                graphOptimizationLevel: 'all'
-            });
-            modelInputName = session.inputNames[0];
-
-            console.log("Model Loaded. Input:", modelInputName);
-            document.getElementById('loader').style.display = 'none';
-            document.getElementById('status-text').innerText = "LIVE VIEW";
-            
-            requestAnimationFrame(loop);
-        } catch (e) {
-            alert("Ошибка запуска: " + e.message);
-            console.error(e);
+  async function init() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         }
+      });
+      video.srcObject = stream;
+      video.onloadedmetadata = () => video.play();
+
+      session = await ort.InferenceSession.create(CONFIG.modelPath, {
+        executionProviders: ['wasm'],
+        graphOptimizationLevel: 'all'
+      });
+      modelInputName = session.inputNames[0];
+
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('status-text').innerText = 'LIVE VIEW';
+
+      requestAnimationFrame(loop);
+    } catch (e) {
+      alert('Ошибка запуска: ' + e.message);
+      console.error(e);
     }
+  }
 
-    // Отрисовка превью (просто видео фон)
-    function loop() {
-        if (!isProcessing) {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            
-            // "Cover" fit для видео
-            const vRatio = video.videoWidth / video.videoHeight;
-            const cRatio = canvas.width / canvas.height;
-            let dw, dh, dx, dy;
+  function loop() {
+    if (!isProcessing) {
+      if (video.videoWidth && video.videoHeight) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-            if (vRatio > cRatio) {
-                dh = canvas.height; dw = dh * vRatio; dx = (canvas.width - dw) / 2; dy = 0;
-            } else {
-                dw = canvas.width; dh = dw / vRatio; dy = (canvas.height - dh) / 2; dx = 0;
-            }
-            
-            ctx.drawImage(video, dx, dy, dw, dh);
+        const vRatio = video.videoWidth / video.videoHeight;
+        const cRatio = canvas.width / canvas.height;
+        let dw, dh, dx, dy;
+        if (vRatio > cRatio) {
+          dh = canvas.height;
+          dw = dh * vRatio;
+          dx = (canvas.width - dw) / 2;
+          dy = 0;
+        } else {
+          dw = canvas.width;
+          dh = dw / vRatio;
+          dy = (canvas.height - dh) / 2;
+          dx = 0;
         }
-        requestAnimationFrame(loop);
+        ctx.drawImage(video, dx, dy, dw, dh);
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+
+  async function captureSAHI() {
+    if (isProcessing) return;
+    isProcessing = true;
+
+    const btn = document.getElementById('scan-btn');
+    const status = document.getElementById('status-text');
+    btn.classList.add('processing');
+    status.innerText = 'СКАНИРОВАНИЕ...';
+    status.style.color = '#ffd700';
+
+    const fullCvs = document.createElement('canvas');
+    fullCvs.width = video.videoWidth;
+    fullCvs.height = video.videoHeight;
+    const fctx = fullCvs.getContext('2d');
+    fctx.drawImage(video, 0, 0);
+
+    const tiles = generateTiles(fullCvs.width, fullCvs.height);
+    let globalBoxes = [];
+
+    for (let tile of tiles) {
+      const tileData = fctx.getImageData(tile.x, tile.y, tile.w, tile.h);
+      const inputTensor = await preprocess(tileData, CONFIG.inputSize);
+
+      const feeds = {};
+      feeds[modelInputName] = inputTensor;
+      const results = await session.run(feeds);
+      const output = results[session.outputNames[0]];
+
+      const localBoxes = parseYOLOOutput(output);
+      const scaleX = tile.w / CONFIG.inputSize;
+      const scaleY = tile.h / CONFIG.inputSize;
+
+      localBoxes.forEach(box => {
+        const [x, y, w, h, score, cls] = box;
+        const gx = x * scaleX + tile.x;
+        const gy = y * scaleY + tile.y;
+        const gw = w * scaleX;
+        const gh = h * scaleY;
+        globalBoxes.push([gx, gy, gw, gh, score, cls]);
+      });
     }
 
-    // --- 2. SAHI ЛОГИКА (Магия нарезки) ---
-    async function captureSAHI() {
-        if (isProcessing) return;
-        isProcessing = true;
-        
-        const btn = document.getElementById('scan-btn');
-        const status = document.getElementById('status-text');
-        
-        btn.classList.add('processing');
-        status.innerText = "СКАНИРОВАНИЕ HD...";
-        status.style.color = "#ffd700";
+    const finalBoxes = nms(globalBoxes);
+    drawLayout(finalBoxes, fullCvs);
 
-        // 1. Берем полный кадр
-        const fullCvs = document.createElement('canvas');
-        fullCvs.width = video.videoWidth;
-        fullCvs.height = video.videoHeight;
-        const fctx = fullCvs.getContext('2d');
-        fctx.drawImage(video, 0, 0);
+    document.getElementById('count').innerText = finalBoxes.length;
+    status.innerText = 'ГОТОВО';
+    status.style.color = '#00ff9d';
+    btn.classList.remove('processing');
 
-        // 2. Генерируем тайлы (Tiles)
-        const tiles = generateTiles(fullCvs.width, fullCvs.height);
-        let globalBoxes = [];
+    setTimeout(() => {
+      isProcessing = false;
+      status.innerText = 'LIVE VIEW';
+      status.style.color = '#00ff9d';
+    }, 2500);
+  }
 
-        // 3. Проходим по каждому тайлу
-        for (let i = 0; i < tiles.length; i++) {
-            const tile = tiles[i];
-            
-            // Вырезаем и ресайзим до 640x640 для модели
-            const tileData = fctx.getImageData(tile.x, tile.y, tile.w, tile.h);
-            const inputTensor = await preprocess(tileData, CONFIG.inputSize);
-            
-            // Инференс
-            const feeds = {};
-            feeds[modelInputName] = inputTensor;
-            const results = await session.run(feeds);
-            const output = results[session.outputNames[0]];
+  function generateTiles(w, h) {
+    const tiles = [];
+    const stepX = w / CONFIG.tilesX;
+    const stepY = h / CONFIG.tilesY;
+    const tileW = stepX * 1.2;
+    const tileH = stepY * 1.2;
 
-            // Парсинг (авто-детект формата v8 или v10)
-            const localBoxes = parseYOLOOutput(output, CONFIG.inputSize, CONFIG.inputSize);
-
-            // Пересчет координат в глобальные (на фулл картинку)
-            // Важно: мы ресайзили tile.w -> 640, надо развернуть коэффициент
-            const scaleX = tile.w / CONFIG.inputSize;
-            const scaleY = tile.h / CONFIG.inputSize;
-
-            localBoxes.forEach(box => {
-                // box: [x, y, w, h, score, class] в координатах модели 640
-                const gx = (box[0] * scaleX) + tile.x;
-                const gy = (box[1] * scaleY) + tile.y;
-                const gw = box[2] * scaleX;
-                const gh = box[3] * scaleY;
-                
-                globalBoxes.push([gx, gy, gw, gh, box[4], box[5]]);
-            });
-        }
-
-        // 4. Финальный NMS (объединяем находки с разных тайлов)
-        const finalBoxes = nms(globalBoxes);
-
-        // 5. Показываем результат
-        drawResults(finalBoxes, fullCvs);
-        
-        status.innerText = "ГОТОВО";
-        status.style.color = "#00ff9d";
-        document.getElementById('count').innerText = finalBoxes.length;
-        btn.classList.remove('processing');
-        
-        // Пауза 2 сек, чтобы увидеть результат
-        setTimeout(() => { isProcessing = false; status.innerText = "LIVE VIEW"; }, 3000);
+    for (let y = 0; y < h; y += stepY) {
+      for (let x = 0; x < w; x += stepX) {
+        let tx = x;
+        let ty = y;
+        if (tx + tileW > w) tx = w - tileW;
+        if (ty + tileH > h) ty = h - tileH;
+        if (tx < 0) tx = 0;
+        if (ty < 0) ty = 0;
+        tiles.push({ x: tx, y: ty, w: tileW, h: tileH });
+      }
     }
+    return tiles;
+  }
 
-    function generateTiles(w, h) {
-        // Упрощенная генерация с перекрытием
-        const tiles = [];
-        const stepX = w / CONFIG.tilesX; 
-        const stepY = h / CONFIG.tilesY;
-        
-        // Делаем тайлы чуть больше шага для нахлеста (Overlap 20%)
-        const tileW = stepX * 1.2; 
-        const tileH = stepY * 1.2;
+  async function preprocess(imageData, targetSize) {
+    const tempCvs = document.createElement('canvas');
+    tempCvs.width = targetSize;
+    tempCvs.height = targetSize;
+    const tctx = tempCvs.getContext('2d');
 
-        for (let y = 0; y < h; y += stepY) {
-            for (let x = 0; x < w; x += stepX) {
-                // Если тайл вылезает за край, сдвигаем его назад
-                let tx = x;
-                let ty = y;
-                if (tx + tileW > w) tx = w - tileW;
-                if (ty + tileH > h) ty = h - tileH;
-                
-                // Чтобы не добавлять лишние тайлы совсем в конце
-                if (tx < 0) tx = 0; 
-                if (ty < 0) ty = 0;
+    const bitmap = await createImageBitmap(imageData);
+    tctx.drawImage(bitmap, 0, 0, targetSize, targetSize);
 
-                tiles.push({ x: tx, y: ty, w: tileW, h: tileH });
-            }
-        }
-        // Удаляем дубли (грубо) и обрезаем лишние, если набежало
-        return tiles.slice(0, (CONFIG.tilesX + 1) * (CONFIG.tilesY + 1)); 
+    const resized = tctx.getImageData(0, 0, targetSize, targetSize);
+    const data = resized.data;
+    const float32 = new Float32Array(3 * targetSize * targetSize);
+
+    for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+      float32[j] = data[i] / 255.0;
+      float32[j + targetSize * targetSize] = data[i + 1] / 255.0;
+      float32[j + 2 * targetSize * targetSize] = data[i + 2] / 255.0;
     }
+    return new ort.Tensor('float32', float32, [1, 3, targetSize, targetSize]);
+  }
 
-    // --- 3. ОБРАБОТКА ДАННЫХ (Smart Parser) ---
+  function parseYOLOOutput(output) {
+    const boxes = [];
+    const dims = output.dims;
+    const data = output.data;
 
-    async function preprocess(imageData, targetSize) {
-        // 1. Ресайз (Canvas way - самый быстрый в браузере)
-        const tempCvs = document.createElement('canvas');
-        tempCvs.width = targetSize;
-        tempCvs.height = targetSize;
-        const tctx = tempCvs.getContext('2d');
-        
-        // Создаем ImageBitmap для ресайза
-        const bitmap = await createImageBitmap(imageData);
-        tctx.drawImage(bitmap, 0, 0, targetSize, targetSize);
-        
-        const resizedData = tctx.getImageData(0, 0, targetSize, targetSize);
-        const { data } = resizedData;
-        const float32 = new Float32Array(3 * targetSize * targetSize);
-        
-        // Нормализация 0-255 -> 0.0-1.0
-        for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-            float32[j] = data[i] / 255.0;                      // R
-            float32[j + targetSize*targetSize] = data[i+1] / 255.0;    // G
-            float32[j + 2*targetSize*targetSize] = data[i+2] / 255.0;  // B
-        }
-        return new ort.Tensor('float32', float32, [1, 3, targetSize, targetSize]);
-    }
-
-    function parseYOLOOutput(output, imgW, imgH) {
-        const boxes = [];
-        const dims = output.dims; // например [1, 84, 8400] или [1, 300, 6]
-        const data = output.data;
-
-        // ВАРИАНТ 1: YOLOv10 End-to-End ([1, 300, 6])
-        // Формат: [batch, num_dets, (x1, y1, x2, y2, score, cls)]
-        if (dims[2] === 6) {
-            const numDets = dims[1];
-            for (let i = 0; i < numDets; i++) {
-                const offset = i * 6;
-                const score = data[offset + 4];
-                if (score > CONFIG.confThreshold) {
-                    const x1 = data[offset];
-                    const y1 = data[offset + 1];
-                    const x2 = data[offset + 2];
-                    const y2 = data[offset + 3];
-                    const cls = data[offset + 5];
-                    // Конвертируем в XYWH для совместимости
-                    boxes.push([x1, y1, x2 - x1, y2 - y1, score, cls]);
-                }
-            }
-        } 
-        // ВАРИАНТ 2: Стандартный YOLOv8/v10 ([1, 84, 8400])
-        // Формат: [batch, 4+cls, anchors] (транспонированный)
-        else {
-            const numClasses = dims[1] - 4;
-            const numAnchors = dims[2];
-            
-            for (let i = 0; i < numAnchors; i++) {
-                // Ищем макс класс
-                let maxScore = 0;
-                let cls = -1;
-                for (let c = 0; c < numClasses; c++) {
-                    const s = data[(4 + c) * numAnchors + i];
-                    if (s > maxScore) { maxScore = s; cls = c; }
-                }
-
-                if (maxScore > CONFIG.confThreshold) {
-                    const x = data[0 * numAnchors + i];
-                    const y = data[1 * numAnchors + i];
-                    const w = data[2 * numAnchors + i];
-                    const h = data[3 * numAnchors + i];
-                    
-                    boxes.push([x - w/2, y - h/2, w, h, maxScore, cls]);
-                }
-            }
-        }
-        return boxes;
-    }
-
-    function nms(boxes) {
-        if (!boxes.length) return [];
-        boxes.sort((a, b) => b[4] - a[4]); // Сортируем по Score
-        
-        const selected = [];
-        const active = new Array(boxes.length).fill(true);
-        
-        for (let i = 0; i < boxes.length; i++) {
-            if (active[i]) {
-                selected.push(boxes[i]);
-                for (let j = i + 1; j < boxes.length; j++) {
-                    if (active[j]) {
-                        const iou = getIoU(boxes[i], boxes[j]);
-                        if (iou > CONFIG.nmsThreshold) active[j] = false;
-                    }
-                }
-            }
-        }
-        return selected;
-    }
-
-    function getIoU(boxA, boxB) {
-        const x1 = Math.max(boxA[0], boxB[0]);
-        const y1 = Math.max(boxA[1], boxB[1]);
-        const x2 = Math.min(boxA[0] + boxA[2], boxB[0] + boxB[2]);
-        const y2 = Math.min(boxA[1] + boxA[3], boxB[1] + boxB[3]);
-        
-        const interW = Math.max(0, x2 - x1);
-        const interH = Math.max(0, y2 - y1);
-        const interArea = interW * interH;
-        
-        const areaA = boxA[2] * boxA[3];
-        const areaB = boxB[2] * boxB[3];
-        
-        return interArea / (areaA + areaB - interArea + 0.0001);
-    }
-
-    // Отрисовка результатов
-    function drawResults(boxes, fullImg) {
-        // Отрисовка рамок на канвас превью
-        const scaleX = canvas.width / fullImg.width;
-        const scaleY = canvas.height / fullImg.height;
-
-        ctx.drawImage(video, 0,0, canvas.width, canvas.height); // Освежаем фон
-        
-        // Очищаем галерею
-        const gallery = document.getElementById('gallery');
-        gallery.innerHTML = '';
-
-        boxes.forEach(box => {
-            const [x, y, w, h, score, cls] = box;
-            
-            // 1. Рисуем рамку на экране
-            ctx.strokeStyle = '#00ff9d';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(x * scaleX, y * scaleY, w * scaleX, h * scaleY);
-            
-            // Текст уверенности
-            ctx.fillStyle = '#00ff9d';
-            ctx.font = 'bold 14px Arial';
-            ctx.fillText((score*100).toFixed(0)+'%', x * scaleX, y * scaleY - 5);
-
-            // 2. Добавляем в галерею внизу
-            const cardCanvas = document.createElement('canvas');
-            cardCanvas.width = w;
-            cardCanvas.height = h;
-            const cctx = cardCanvas.getContext('2d');
-            
-            // Вырезаем чисто карту
-            cctx.drawImage(fullImg, x, y, w, h, 0, 0, w, h);
-            
-            const img = new Image();
-            img.src = cardCanvas.toDataURL();
-            img.className = 'captured-card';
-            gallery.appendChild(img);
-        });
-    }
-
-    init();
-</script>
-</body>
-</html>
+    if (dims[2] === 6) {
+      const numDets = dims[1];
+      for (let i = 0; i < numDets; i++) {
+        const o = i * 6;
+        const score = data[o +
