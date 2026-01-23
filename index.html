@@ -6,8 +6,7 @@
     name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
   />
-  <title>Tarot YOLO 640 · core v2.1</title>
-  <!-- ONNX Runtime Web -->
+  <title>Tarot YOLO 640 · tiles v3.0</title>
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
   <style>
     body {
@@ -23,9 +22,7 @@
       height: 100vh;
       background: #000;
     }
-    video {
-      display: none;
-    }
+    video { display: none; }
     canvas {
       display: block;
       width: 100%;
@@ -43,7 +40,12 @@
     .top {
       padding-top: 28px;
       padding-inline: 14px;
-      background: linear-gradient(180deg, rgba(0, 0, 0, 0.95), transparent);
+      background: linear-gradient(180deg, rgba(0,0,0,0.95), transparent);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .top-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -74,19 +76,18 @@
       gap: 2px;
     }
     .btn-row {
-      margin-top: 8px;
       display: flex;
       justify-content: center;
       pointer-events: auto;
     }
     #scan-btn {
-      min-width: 80px;
-      padding: 6px 12px;
+      min-width: 90px;
+      padding: 6px 14px;
       border-radius: 20px;
-      border: 1px solid rgba(255, 255, 255, 0.8);
-      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255,255,255,0.8);
+      background: rgba(0,0,0,0.4);
       color: #fff;
-      font-size: 12px;
+      font-size: 13px;
       text-align: center;
       cursor: pointer;
       transition: 0.2s;
@@ -94,7 +95,7 @@
     #scan-btn:active {
       transform: scale(0.95);
       border-color: #ffd700;
-      background: rgba(255, 215, 0, 0.2);
+      background: rgba(255,215,0,0.2);
     }
     #scan-btn.disabled {
       opacity: 0.4;
@@ -108,8 +109,8 @@
       font-size: 16px;
       line-height: 1.4;
       color: #ffb0b0;
-      background: rgba(0, 0, 0, 0.9);
-      border: 2px solid rgba(255, 0, 0, 0.8);
+      background: rgba(0,0,0,0.9);
+      border: 2px solid rgba(255,0,0,0.8);
       border-radius: 6px;
       padding: 8px 10px;
       pointer-events: none;
@@ -119,383 +120,340 @@
   </style>
 </head>
 <body>
-  <div id="container">
-    <video id="video" playsinline autoplay muted></video>
-    <canvas id="canvas"></canvas>
+<div id="container">
+  <video id="video" playsinline autoplay muted></video>
+  <canvas id="canvas"></canvas>
 
-    <div id="ui">
-      <div>
-        <div class="top">
-          <div class="block">
-            <div class="status" id="status-text">INIT</div>
-            <div class="sub">YOLO onnx 640 test</div>
-            <div class="version">build: core-v2.1 · rider_8k_640.onnx</div>
-          </div>
-          <div class="right-top">
-            <div class="sub" id="info-res"></div>
-            <div class="sub" id="info-device"></div>
-          </div>
+  <div id="ui">
+    <div class="top">
+      <div class="top-row">
+        <div class="block">
+          <div class="status" id="status-text">INIT</div>
+          <div class="sub">YOLO onnx 640 · tiles 2×2</div>
+          <div class="version">build: tiles-v3.0 · rider_8k_640.onnx</div>
         </div>
-        <div class="btn-row">
-          <div id="scan-btn" class="disabled">SCAN</div>
+        <div class="right-top">
+          <div class="sub" id="info-res"></div>
+          <div class="sub" id="info-device"></div>
         </div>
       </div>
-      <div id="error-box"></div>
+      <div class="btn-row">
+        <div id="scan-btn" class="disabled">SCAN (tiles)</div>
+      </div>
     </div>
+
+    <div id="error-box"></div>
   </div>
+</div>
 
-  <script>
-    const CONFIG = {
-      modelPath: "./rider_8k_640.onnx",
-      inputSize: 640,
-      confThreshold: 0.25,
-      nmsThreshold: 0.45,
-    };
+<script>
+  const CONFIG = {
+    modelPath: "./rider_8k_640.onnx",
+    inputSize: 640,
+    confThreshold: 0.25,
+    nmsThreshold: 0.45,
+    tilesX: 2,
+    tilesY: 2
+  };
 
-    let session = null;
-    let modelInputName = "";
-    let video = document.getElementById("video");
-    let canvas = document.getElementById("canvas");
-    let ctx = canvas.getContext("2d");
-    let isScanning = false;
+  let session = null;
+  let modelInputName = "";
+  let video = document.getElementById("video");
+  let canvas = document.getElementById("canvas");
+  let ctx = canvas.getContext("2d");
+  let isScanning = false;
 
-    // Ловим любые JS-ошибки
-    window.onerror = function (msg, url, line, col, error) {
-      const box = document.getElementById("error-box");
-      if (box) {
-        box.textContent = "JS ERROR: " + msg + " @ " + line + ":" + col;
-      }
-      console.log("window.onerror", msg, url, line, col, error);
-    };
+  window.onerror = function (msg, url, line, col, error) {
+    const box = document.getElementById("error-box");
+    if (box) box.textContent = "JS ERROR: " + msg + " @ " + line + ":" + col;
+    console.log("window.onerror", msg, url, line, col, error);
+  };
 
-    function showError(msg) {
-      const box = document.getElementById("error-box");
-      box.textContent = msg;
-      console.log(msg);
-    }
+  function showError(msg) {
+    const box = document.getElementById("error-box");
+    box.textContent = msg;
+    console.log(msg);
+  }
 
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    window.addEventListener("resize", resize);
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener("resize", resize);
 
-    async function initCam() {
-      document.getElementById("status-text").innerText = "INIT CAMERA";
-      document.getElementById("info-device").innerText =
-        navigator.userAgent || "no UA";
+  async function initCam() {
+    document.getElementById("status-text").innerText = "INIT CAMERA";
+    document.getElementById("info-device").innerText =
+      navigator.userAgent || "no UA";
 
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-          audio: false,
-        });
-        video.srcObject = stream;
-        video.onloadedmetadata = () => {
-          try {
-            video.play();
-            resize();
-            drawFrame();
-            document.getElementById("info-res").innerText =
-              "video: " +
-              video.videoWidth +
-              "×" +
-              video.videoHeight +
-              " / screen: " +
-              window.innerWidth +
-              "×" +
-              window.innerHeight;
-            showError("OK: камера работает");
-          } catch (e) {
-            showError("Video metadata error: " + e.message);
-          }
-        };
-      } catch (e) {
-        showError("CAM ERROR: " + e.name + " · " + e.message);
-        throw e;
-      }
-    }
-
-    function drawFrame() {
-      if (!video.videoWidth || !video.videoHeight) {
-        requestAnimationFrame(drawFrame);
-        return;
-      }
-      resize();
-      const vRatio = video.videoWidth / video.videoHeight;
-      const cRatio = canvas.width / canvas.height;
-      let dw, dh, dx, dy;
-      if (vRatio > cRatio) {
-        dh = canvas.height;
-        dw = dh * vRatio;
-        dx = (canvas.width - dw) / 2;
-        dy = 0;
-      } else {
-        dw = canvas.width;
-        dh = dw / vRatio;
-        dy = (canvas.height - dh) / 2;
-        dx = 0;
-      }
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(video, dx, dy, dw, dh);
-      requestAnimationFrame(drawFrame);
-    }
-
-    async function initModel() {
-      document.getElementById("status-text").innerText = "INIT MODEL";
-      try {
-        // фикс для iOS: выключаем SIMD, чтобы onnxruntime не падал
-        const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
-        if (isIOS && ort && ort.env && ort.env.wasm) {
-          ort.env.wasm.simd = false;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+      video.srcObject = stream;
+      video.onloadedmetadata = () => {
+        try {
+          video.play();
+          resize();
+          drawFrame();
+          document.getElementById("info-res").innerText =
+            "video: " +
+            video.videoWidth +
+            "×" +
+            video.videoHeight +
+            " / screen: " +
+            window.innerWidth +
+            "×" +
+            window.innerHeight;
+          showError("OK: камера работает");
+        } catch (e) {
+          showError("Video metadata error: " + e.message);
         }
+      };
+    } catch (e) {
+      showError("CAM ERROR: " + e.name + " · " + e.message);
+      throw e;
+    }
+  }
 
-        session = await ort.InferenceSession.create(CONFIG.modelPath, {
-          executionProviders: ["wasm"],
-          graphOptimizationLevel: "all",
-        });
-        modelInputName = session.inputNames[0];
-        document.getElementById("status-text").innerText = "READY";
-        showError("OK: модель загружена");
-        const btn = document.getElementById("scan-btn");
-        btn.classList.remove("disabled");
-        btn.onclick = scanOnce;
-      } catch (e) {
-        showError("MODEL ERROR: " + e.message);
+  function drawFrame() {
+    if (!video.videoWidth || !video.videoHeight) {
+      requestAnimationFrame(drawFrame);
+      return;
+    }
+    resize();
+    const vRatio = video.videoWidth / video.videoHeight;
+    const cRatio = canvas.width / canvas.height;
+    let dw, dh, dx, dy;
+    if (vRatio > cRatio) {
+      dh = canvas.height;
+      dw = dh * vRatio;
+      dx = (canvas.width - dw) / 2;
+      dy = 0;
+    } else {
+      dw = canvas.width;
+      dh = dw / vRatio;
+      dy = (canvas.height - dh) / 2;
+      dx = 0;
+    }
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, dx, dy, dw, dh);
+    requestAnimationFrame(drawFrame);
+  }
+
+  async function initModel() {
+    document.getElementById("status-text").innerText = "INIT MODEL";
+    try {
+      const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
+      if (isIOS && ort && ort.env && ort.env.wasm) {
+        ort.env.wasm.simd = false;
+      }
+
+      session = await ort.InferenceSession.create(CONFIG.modelPath, {
+        executionProviders: ["wasm"],
+        graphOptimizationLevel: "all"
+      });
+      modelInputName = session.inputNames[0];
+      document.getElementById("status-text").innerText = "READY";
+      showError("OK: модель загружена");
+      const btn = document.getElementById("scan-btn");
+      btn.classList.remove("disabled");
+      btn.onclick = scanTiles;
+    } catch (e) {
+      showError("MODEL ERROR: " + e.message);
+    }
+  }
+
+  function generateTiles640(videoW, videoH) {
+    // Простая сетка 2×2 по исходному кадру, каждый тайл будет приведён к 640×640
+    const tiles = [];
+    const stepX = videoW / CONFIG.tilesX;
+    const stepY = videoH / CONFIG.tilesY;
+
+    for (let ty = 0; ty < CONFIG.tilesY; ty++) {
+      for (let tx = 0; tx < CONFIG.tilesX; tx++) {
+        const x = Math.floor(tx * stepX);
+        const y = Math.floor(ty * stepY);
+        const w = Math.ceil(stepX);
+        const h = Math.ceil(stepY);
+        tiles.push({ x, y, w, h });
       }
     }
+    return tiles;
+  }
 
-    async function preprocessTo640() {
-      // берём текущий кадр видео и приводим к 640×640
-      const tmp = document.createElement("canvas");
-      tmp.width = CONFIG.inputSize;
-      tmp.height = CONFIG.inputSize;
-      const tctx = tmp.getContext("2d");
+  async function tileToTensor(tile) {
+    // Вырезаем часть видео и приводим к 640×640
+    const { x, y, w, h } = tile;
 
+    const tmp = document.createElement("canvas");
+    tmp.width = CONFIG.inputSize;
+    tmp.height = CONFIG.inputSize;
+    const tctx = tmp.getContext("2d");
+
+    // рисуем нужный участок из видео на временный canvas, сразу в 640×640
+    tctx.drawImage(
+      video,
+      x, y, w, h,
+      0, 0, CONFIG.inputSize, CONFIG.inputSize
+    );
+
+    const imageData = tctx.getImageData(0, 0, CONFIG.inputSize, CONFIG.inputSize);
+    const data = imageData.data;
+    const float32 = new Float32Array(3 * CONFIG.inputSize * CONFIG.inputSize);
+
+    for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+      float32[j] = data[i] / 255.0;
+      float32[j + CONFIG.inputSize * CONFIG.inputSize] = data[i + 1] / 255.0;
+      float32[j + 2 * CONFIG.inputSize * CONFIG.inputSize] = data[i + 2] / 255.0;
+    }
+
+    return new ort.Tensor(
+      "float32",
+      float32,
+      [1, 3, CONFIG.inputSize, CONFIG.inputSize]
+    );
+  }
+
+  function parseYOLOOutput(output) {
+    const boxes = [];
+    const dims = output.dims;
+    const data = output.data;
+
+    // [1, N, 6]
+    if (dims.length === 3 && dims[2] === 6) {
+      const numDets = dims[1];
+      for (let i = 0; i < numDets; i++) {
+        const o = i * 6;
+        const score = data[o + 4];
+        if (score < CONFIG.confThreshold) continue;
+        const x1 = data[o];
+        const y1 = data[o + 1];
+        const x2 = data[o + 2];
+        const y2 = data[o + 3];
+        const cls = data[o + 5];
+        const w = x2 - x1;
+        const h = y2 - y1;
+        boxes.push([x1, y1, w, h, score, cls]);
+      }
+    }
+    // [1, 4+cls, anchors]
+    else if (dims.length === 3 && dims[0] === 1) {
+      const numClasses = dims[1] - 4;
+      const numAnchors = dims[2];
+      for (let i = 0; i < numAnchors; i++) {
+        let maxScore = 0;
+        let cls = -1;
+        for (let c = 0; c < numClasses; c++) {
+          const s = data[(4 + c) * numAnchors + i];
+          if (s > maxScore) {
+            maxScore = s;
+            cls = c;
+          }
+        }
+        if (maxScore < CONFIG.confThreshold) continue;
+        const x = data[0 * numAnchors + i];
+        const y = data[1 * numAnchors + i];
+        const w = data[2 * numAnchors + i];
+        const h = data[3 * numAnchors + i];
+        boxes.push([x - w / 2, y - h / 2, w, h, maxScore, cls]);
+      }
+    } else {
+      showError("Неизвестный формат вывода: " + JSON.stringify(dims));
+    }
+
+    return boxes;
+  }
+
+  function getIoU(a, b) {
+    const x1 = Math.max(a[0], b[0]);
+    const y1 = Math.max(a[1], b[1]);
+    const x2 = Math.min(a[0] + a[2], b[0] + b[2]);
+    const y2 = Math.min(a[1] + a[3], b[1] + b[3]);
+    const iw = Math.max(0, x2 - x1);
+    const ih = Math.max(0, y2 - y1);
+    const inter = iw * ih;
+    const areaA = a[2] * a[3];
+    const areaB = b[2] * b[3];
+    return inter / (areaA + areaB - inter + 1e-6);
+  }
+
+  function nms(boxes) {
+    if (!boxes.length) return [];
+    boxes.sort((a, b) => b[4] - a[4]);
+    const selected = [];
+    const active = new Array(boxes.length).fill(true);
+    for (let i = 0; i < boxes.length; i++) {
+      if (!active[i]) continue;
+      selected.push(boxes[i]);
+      for (let j = i + 1; j < boxes.length; j++) {
+        if (!active[j]) continue;
+        const iou = getIoU(boxes[i], boxes[j]);
+        if (iou > CONFIG.nmsThreshold) active[j] = false;
+      }
+    }
+    return selected;
+  }
+
+  async function scanTiles() {
+    if (isScanning || !session) return;
+    isScanning = true;
+    const btn = document.getElementById("scan-btn");
+    btn.classList.add("disabled");
+    document.getElementById("status-text").innerText = "SCANNING…";
+    showError("SCAN: старт (tiles 2×2)");
+
+    try {
       const vW = video.videoWidth;
       const vH = video.videoHeight;
-      if (!vW || !vH) throw new Error("нет размеров видео");
-
-      const scale = Math.min(CONFIG.inputSize / vW, CONFIG.inputSize / vH);
-      const drawW = vW * scale;
-      const drawH = vH * scale;
-      const dx = (CONFIG.inputSize - drawW) / 2;
-      const dy = (CONFIG.inputSize - drawH) / 2;
-
-      tctx.fillStyle = "#000";
-      tctx.fillRect(0, 0, CONFIG.inputSize, CONFIG.inputSize);
-      tctx.drawImage(video, dx, dy, drawW, drawH);
-
-      const imageData = tctx.getImageData(
-        0,
-        0,
-        CONFIG.inputSize,
-        CONFIG.inputSize
-      );
-      const data = imageData.data;
-      const float32 = new Float32Array(
-        3 * CONFIG.inputSize * CONFIG.inputSize
-      );
-
-      for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-        float32[j] = data[i] / 255.0;
-        float32[j + CONFIG.inputSize * CONFIG.inputSize] = data[i + 1] / 255.0;
-        float32[
-          j + 2 * CONFIG.inputSize * CONFIG.inputSize
-        ] = data[i + 2] / 255.0;
+      if (!vW || !vH) {
+        showError("SCAN ERROR: нет размеров видео");
+        return;
       }
 
-      return {
-        tensor: new ort.Tensor(
-          "float32",
-          float32,
-          [1, 3, CONFIG.inputSize, CONFIG.inputSize]
-        ),
-        offsetX: dx,
-        offsetY: dy,
-        scale,
-      };
-    }
+      const tiles = generateTiles640(vW, vH);
+      let allBoxes = [];
 
-    function parseYOLOOutput(output) {
-      // покажем форму вывода внизу
-      showError("OUTPUT DIMS: " + JSON.stringify(output.dims));
-
-      const boxes = [];
-      const dims = output.dims;
-      const data = output.data;
-
-      // Вариант 1: [1, N, 6] (x1,y1,x2,y2,score,cls)
-      if (dims.length === 3 && dims[2] === 6) {
-        const numDets = dims[1];
-        for (let i = 0; i < numDets; i++) {
-          const o = i * 6;
-          const score = data[o + 4];
-          if (score < CONFIG.confThreshold) continue;
-          const x1 = data[o];
-          const y1 = data[o + 1];
-          const x2 = data[o + 2];
-          const y2 = data[o + 3];
-          const cls = data[o + 5];
-          const w = x2 - x1;
-          const h = y2 - y1;
-          boxes.push([x1, y1, w, h, score, cls]);
-        }
-      }
-      // Вариант 2: [1, 4+cls, anchors] (YOLOv8/v10 стандарт)
-      else if (dims.length === 3 && dims[0] === 1) {
-        const numClasses = dims[1] - 4;
-        const numAnchors = dims[2];
-        for (let i = 0; i < numAnchors; i++) {
-          let maxScore = 0;
-          let cls = -1;
-          for (let c = 0; c < numClasses; c++) {
-            const s = data[(4 + c) * numAnchors + i];
-            if (s > maxScore) {
-              maxScore = s;
-              cls = c;
-            }
-          }
-          if (maxScore < CONFIG.confThreshold) continue;
-          const x = data[0 * numAnchors + i];
-          const y = data[1 * numAnchors + i];
-          const w = data[2 * numAnchors + i];
-          const h = data[3 * numAnchors + i];
-          boxes.push([x - w / 2, y - h / 2, w, h, maxScore, cls]);
-        }
-      } else {
-        // неизвестный формат
-        showError(
-          "Неизвестный формат вывода ONNX: dims=" + JSON.stringify(dims)
-        );
-      }
-
-      return boxes;
-    }
-
-    function getIoU(a, b) {
-      const x1 = Math.max(a[0], b[0]);
-      const y1 = Math.max(a[1], b[1]);
-      const x2 = Math.min(a[0] + a[2], b[0] + b[2]);
-      const y2 = Math.min(a[1] + a[3], b[1] + b[3]);
-      const iw = Math.max(0, x2 - x1);
-      const ih = Math.max(0, y2 - y1);
-      const inter = iw * ih;
-      const areaA = a[2] * a[3];
-      const areaB = b[2] * b[3];
-      return inter / (areaA + areaB - inter + 1e-6);
-    }
-
-    function nms(boxes) {
-      if (!boxes.length) return [];
-      boxes.sort((a, b) => b[4] - a[4]);
-      const selected = [];
-      const active = new Array(boxes.length).fill(true);
-      for (let i = 0; i < boxes.length; i++) {
-        if (!active[i]) continue;
-        selected.push(boxes[i]);
-        for (let j = i + 1; j < boxes.length; j++) {
-          if (!active[j]) continue;
-          const iou = getIoU(boxes[i], boxes[j]);
-          if (iou > CONFIG.nmsThreshold) active[j] = false;
-        }
-      }
-      return selected;
-    }
-
-    async function scanOnce() {
-      if (isScanning || !session) return;
-      isScanning = true;
-      const btn = document.getElementById("scan-btn");
-      btn.classList.add("disabled");
-      document.getElementById("status-text").innerText = "SCANNING…";
-
-      try {
-        const { tensor, offsetX, offsetY, scale } = await preprocessTo640();
+      for (const tile of tiles) {
+        const inputTensor = await tileToTensor(tile);
         const feeds = {};
-        feeds[modelInputName] = tensor;
+        feeds[modelInputName] = inputTensor;
         const results = await session.run(feeds);
         const output = results[session.outputNames[0]];
-        const boxes = parseYOLOOutput(output);
-        const finalBoxes = nms(boxes);
+        const localBoxes = parseYOLOOutput(output);
 
-        // перерисуем текущий кадр
-        drawFrameOnce();
+        // перевод из координат 640×640 в координаты исходного кадра
+        const scaleBackX = tile.w / CONFIG.inputSize;
+        const scaleBackY = tile.h / CONFIG.inputSize;
 
-        // рисуем рамки поверх
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "#00ff9d";
-        ctx.font = "12px Arial";
-        ctx.fillStyle = "#00ff9d";
-
-        const vW = video.videoWidth;
-        const vH = video.videoHeight;
-        const vRatio = vW / vH;
-        const cRatio = canvas.width / canvas.height;
-        let dw, dh, dx, dy;
-        if (vRatio > cRatio) {
-          dh = canvas.height;
-          dw = dh * vRatio;
-          dx = (canvas.width - dw) / 2;
-          dy = 0;
-        } else {
-          dw = canvas.width;
-          dh = dw / vRatio;
-          dy = (canvas.height - dh) / 2;
-          dx = 0;
-        }
-
-        finalBoxes.forEach((b) => {
+        localBoxes.forEach(b => {
           const [x, y, w, h, score, cls] = b;
-          // координаты в 640×640 -> в исходный кадр видео
-          const vx1 = (x - offsetX) / scale;
-          const vy1 = (y - offsetY) / scale;
-          const vw = w / scale;
-          const vh = h / scale;
-          // далее в экранные координаты
-          const ex = dx + (vx1 / vW) * dw;
-          const ey = dy + (vy1 / vH) * dh;
-          const ew = (vw / vW) * dw;
-          const eh = (vh / vH) * dh;
-
-          ctx.strokeRect(ex, ey, ew, eh);
-          ctx.fillText((score * 100).toFixed(0) + "%", ex + 2, ey + 12);
+          const gx = x * scaleBackX + tile.x;
+          const gy = y * scaleBackY + tile.y;
+          const gw = w * scaleBackX;
+          const gh = h * scaleBackY;
+          allBoxes.push([gx, gy, gw, gh, score, cls]);
         });
-
-        document.getElementById("status-text").innerText =
-          "READY (" + finalBoxes.length + ")";
-        if (!finalBoxes.length) {
-          showError(
-            "OUTPUT DIMS: " +
-              JSON.stringify(output.dims) +
-              "\nSCAN: боксов не найдено (пока)"
-          );
-        } else {
-          showError(
-            "OUTPUT DIMS: " +
-              JSON.stringify(output.dims) +
-              "\nSCAN: найдено " +
-              finalBoxes.length +
-              " боксов"
-          );
-        }
-      } catch (e) {
-        showError("SCAN ERROR: " + e.message);
-      } finally {
-        btn.classList.remove("disabled");
-        isScanning = false;
       }
-    }
 
-    function drawFrameOnce() {
-      if (!video.videoWidth || !video.videoHeight) return;
-      resize();
-      const vRatio = video.videoWidth / video.videoHeight;
+      const finalBoxes = nms(allBoxes);
+
+      // перерисуем текущий кадр
+      drawFrameOnce();
+
+      // рисуем рамки поверх
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#00ff9d";
+      ctx.font = "12px Arial";
+      ctx.fillStyle = "#00ff9d";
+
+      const vRatio = vW / vH;
       const cRatio = canvas.width / canvas.height;
       let dw, dh, dx, dy;
       if (vRatio > cRatio) {
@@ -509,19 +467,61 @@
         dy = (canvas.height - dh) / 2;
         dx = 0;
       }
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(video, dx, dy, dw, dh);
-    }
 
-    (async function main() {
-      try {
-        await initCam();
-        await initModel();
-      } catch (e) {
-        // ошибки уже показываем через showError
-      }
-    })();
-  </script>
+      finalBoxes.forEach(b => {
+        const [gx, gy, gw, gh, score, cls] = b;
+        const ex = dx + (gx / vW) * dw;
+        const ey = dy + (gy / vH) * dh;
+        const ew = (gw / vW) * dw;
+        const eh = (gh / vH) * dh;
+
+        ctx.strokeRect(ex, ey, ew, eh);
+        ctx.fillText((score * 100).toFixed(0) + "%", ex + 2, ey + 12);
+      });
+
+      document.getElementById("status-text").innerText =
+        "READY (" + finalBoxes.length + ")";
+      showError("SCAN: tiles 2×2, итоговых боксов = " + finalBoxes.length);
+    } catch (e) {
+      showError("SCAN ERROR: " + e.message);
+    } finally {
+      btn.classList.remove("disabled");
+      isScanning = false;
+    }
+  }
+
+  function drawFrameOnce() {
+    if (!video.videoWidth || !video.videoHeight) return;
+    resize();
+    const vW = video.videoWidth;
+    const vH = video.videoHeight;
+    const vRatio = vW / vH;
+    const cRatio = canvas.width / canvas.height;
+    let dw, dh, dx, dy;
+    if (vRatio > cRatio) {
+      dh = canvas.height;
+      dw = dh * vRatio;
+      dx = (canvas.width - dw) / 2;
+      dy = 0;
+    } else {
+      dw = canvas.width;
+      dh = dw / vRatio;
+      dy = (canvas.height - dh) / 2;
+      dx = 0;
+    }
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, dx, dy, dw, dh);
+  }
+
+  (async function main() {
+    try {
+      await initCam();
+      await initModel();
+    } catch (e) {
+      // ошибки уже выводятся через showError
+    }
+  })();
+</script>
 </body>
 </html>
